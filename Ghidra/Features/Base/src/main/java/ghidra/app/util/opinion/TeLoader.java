@@ -59,10 +59,6 @@ public class TeLoader extends AbstractTeDebugLoader {
 	/** The minimum length a file has to be for it to qualify as a possible TE. */
 	private static final long MIN_BYTE_LENGTH = 4;
 
-	/** TE loader option to control parsing CLI headers */
-	public static final String PARSE_CLI_HEADERS_OPTION_NAME = "Parse CLI headers (if present)";
-	static final boolean PARSE_CLI_HEADERS_OPTION_DEFAULT = true;
-
 	@Override
 	public Collection<LoadSpec> findSupportedLoadSpecs(ByteProvider provider) throws IOException {
 		List<LoadSpec> loadSpecs = new ArrayList<>();
@@ -161,47 +157,8 @@ public class TeLoader extends AbstractTeDebugLoader {
 	}
 
 	@Override
-	public List<Option> getDefaultOptions(ByteProvider provider, LoadSpec loadSpec,
-			DomainObject domainObject, boolean loadIntoProgram) {
-		List<Option> list =
-			super.getDefaultOptions(provider, loadSpec, domainObject, loadIntoProgram);
-		if (!loadIntoProgram) {
-			list.add(new Option(PARSE_CLI_HEADERS_OPTION_NAME, PARSE_CLI_HEADERS_OPTION_DEFAULT,
-				Boolean.class, Loader.COMMAND_LINE_ARG_PREFIX + "-parseCliHeaders"));
-		}
-		return list;
-	}
-
-	@Override
-	public String validateOptions(ByteProvider provider, LoadSpec loadSpec, List<Option> options) {
-		if (options != null) {
-			for (Option option : options) {
-				String name = option.getName();
-				if (name.equals(PARSE_CLI_HEADERS_OPTION_NAME)) {
-					if (!Boolean.class.isAssignableFrom(option.getValueClass())) {
-						return "Invalid type for option: " + name + " - " + option.getValueClass();
-					}
-				}
-			}
-		}
-		return super.validateOptions(provider, loadSpec, options);
-	}
-
-	@Override
 	protected boolean isCaseInsensitiveLibraryFilenames() {
 		return true;
-	}
-
-	private boolean shouldParseCliHeaders(List<Option> options) {
-		if (options != null) {
-			for (Option option : options) {
-				String optName = option.getName();
-				if (optName.equals(PARSE_CLI_HEADERS_OPTION_NAME)) {
-					return (Boolean) option.getValue();
-				}
-			}
-		}
-		return PARSE_CLI_HEADERS_OPTION_DEFAULT;
 	}
 
 	private void layoutHeaders(Program program, TerseExecutable te, TEHeader teHeader,
@@ -256,18 +213,18 @@ public class TeLoader extends AbstractTeDebugLoader {
 		}
 	}
 
-	private void processProperties(OptionalHeader optionalHeader, Program prog,
+	private void processProperties(TeHeader teHeader, Program prog,
 			TaskMonitor monitor) {
 		if (monitor.isCancelled()) {
 			return;
 		}
 		Options props = prog.getOptions(Program.PROGRAM_INFO);
-		props.setInt("SectionAlignment", optionalHeader.getSectionAlignment());
+		props.setInt("SectionAlignment", teHeader.getSectionAlignment());
 		props.setBoolean(RelocationTable.RELOCATABLE_PROP_NAME,
 			prog.getRelocationTable().getSize() > 0);
 	}
 
-	private void processRelocations(OptionalHeader optionalHeader, Program prog,
+	private void processRelocations(TeHeader teHeader, Program prog,
 			TaskMonitor monitor, MessageLog log) {
 
 		if (monitor.isCancelled()) {
@@ -275,12 +232,12 @@ public class TeLoader extends AbstractTeDebugLoader {
 		}
 		monitor.setMessage(prog.getName() + ": processing relocation tables...");
 
-		DataDirectory[] dataDirectories = optionalHeader.getDataDirectories();
-		if (dataDirectories.length <= OptionalHeader.IMAGE_DIRECTORY_ENTRY_BASERELOC) {
+		DataDirectory[] dataDirectories = teHeader.getDataDirectories();
+		if (dataDirectories.length <= TeHeader.IMAGE_DIRECTORY_ENTRY_BASERELOC) {
 			return;
 		}
 		BaseRelocationDataDirectory brdd =
-			(BaseRelocationDataDirectory) dataDirectories[OptionalHeader.IMAGE_DIRECTORY_ENTRY_BASERELOC];
+			(BaseRelocationDataDirectory) dataDirectories[TeHeader.IMAGE_DIRECTORY_ENTRY_BASERELOC];
 		if (brdd == null) {
 			return;
 		}
@@ -291,12 +248,12 @@ public class TeLoader extends AbstractTeDebugLoader {
 		Memory memory = prog.getMemory();
 
 		BaseRelocation[] relocs = brdd.getBaseRelocations();
-		long originalImageBase = optionalHeader.getOriginalImageBase();
+		long originalImageBase = teHeader.getOriginalImageBase();
 		AddressRange brddRange =
 			new AddressRangeImpl(space.getAddress(originalImageBase + brdd.getVirtualAddress()),
 				space.getAddress(originalImageBase + brdd.getVirtualAddress() + brdd.getSize()));
 		AddressRange headerRange = new AddressRangeImpl(space.getAddress(originalImageBase),
-			space.getAddress(originalImageBase + optionalHeader.getSizeOfHeaders()));
+			space.getAddress(originalImageBase + teHeader.getSizeOfHeaders()));
 		DataConverter conv = new LittleEndianDataConverter();
 
 		for (BaseRelocation reloc : relocs) {
@@ -311,18 +268,18 @@ public class TeLoader extends AbstractTeDebugLoader {
 					continue;
 				}
 				int offset = reloc.getOffset(j);
-				long addr = Conv.intToLong(baseAddr + offset) + optionalHeader.getImageBase();
+				long addr = Conv.intToLong(baseAddr + offset) + teHeader.getImageBase();
 				Address relocAddr = space.getAddress(addr);
 
 				try {
-					byte[] bytes = optionalHeader.is64bit() ? new byte[8] : new byte[4];
+					byte[] bytes = teHeader.is64bit() ? new byte[8] : new byte[4];
 					memory.getBytes(relocAddr, bytes);
-					if (optionalHeader.wasRebased()) {
-						long val = optionalHeader.is64bit() ? conv.getLong(bytes)
+					if (teHeader.wasRebased()) {
+						long val = teHeader.is64bit() ? conv.getLong(bytes)
 								: conv.getInt(bytes) & 0xFFFFFFFFL;
 						val =
-							val - (originalImageBase & 0xFFFFFFFFL) + optionalHeader.getImageBase();
-						byte[] newbytes = optionalHeader.is64bit() ? conv.getBytes(val)
+							val - (originalImageBase & 0xFFFFFFFFL) + teHeader.getImageBase();
+						byte[] newbytes = teHeader.is64bit() ? conv.getBytes(val)
 								: conv.getBytes((int) val);
 						if (type == BaseRelocation.IMAGE_REL_BASED_HIGHLOW) {
 							memory.setBytes(relocAddr, newbytes);
@@ -353,7 +310,7 @@ public class TeLoader extends AbstractTeDebugLoader {
 		}
 	}
 
-	private void processImports(OptionalHeader optionalHeader, Program program, TaskMonitor monitor,
+	private void processImports(TeHeader teHeader, Program program, TaskMonitor monitor,
 			MessageLog log) {
 
 		if (monitor.isCancelled()) {
@@ -361,12 +318,12 @@ public class TeLoader extends AbstractTeDebugLoader {
 		}
 		monitor.setMessage(program.getName() + ": processing imports...");
 
-		DataDirectory[] dataDirectories = optionalHeader.getDataDirectories();
-		if (dataDirectories.length <= OptionalHeader.IMAGE_DIRECTORY_ENTRY_IMPORT) {
+		DataDirectory[] dataDirectories = teHeader.getDataDirectories();
+		if (dataDirectories.length <= TeHeader.IMAGE_DIRECTORY_ENTRY_IMPORT) {
 			return;
 		}
 		ImportDataDirectory idd =
-			(ImportDataDirectory) dataDirectories[OptionalHeader.IMAGE_DIRECTORY_ENTRY_IMPORT];
+			(ImportDataDirectory) dataDirectories[TeHeader.IMAGE_DIRECTORY_ENTRY_IMPORT];
 		if (idd == null) {
 			return;
 		}
@@ -383,12 +340,12 @@ public class TeLoader extends AbstractTeDebugLoader {
 				return;
 			}
 
-			long addr = Conv.intToLong(importInfo.getAddress()) + optionalHeader.getImageBase();
+			long addr = Conv.intToLong(importInfo.getAddress()) + teHeader.getImageBase();
 
 			//If not 64bit make sure address is not larger
 			//than 32bit. On WindowsCE some sections are
 			//declared to roll over.
-			if (!optionalHeader.is64bit()) {
+			if (!teHeader.is64bit()) {
 				addr &= Conv.INT_MASK;
 			}
 
@@ -448,7 +405,7 @@ public class TeLoader extends AbstractTeDebugLoader {
 		}
 	}
 
-	private void processExports(OptionalHeader optionalHeader, Program program, TaskMonitor monitor,
+	private void processExports(TeHeader teHeader, Program program, TaskMonitor monitor,
 			MessageLog log) {
 
 		if (monitor.isCancelled()) {
@@ -456,12 +413,12 @@ public class TeLoader extends AbstractTeDebugLoader {
 		}
 		monitor.setMessage(program.getName() + ": processing exports...");
 
-		DataDirectory[] dataDirectories = optionalHeader.getDataDirectories();
-		if (dataDirectories.length <= OptionalHeader.IMAGE_DIRECTORY_ENTRY_EXPORT) {
+		DataDirectory[] dataDirectories = teHeader.getDataDirectories();
+		if (dataDirectories.length <= TeHeader.IMAGE_DIRECTORY_ENTRY_EXPORT) {
 			return;
 		}
 		ExportDataDirectory edd =
-			(ExportDataDirectory) dataDirectories[OptionalHeader.IMAGE_DIRECTORY_ENTRY_EXPORT];
+			(ExportDataDirectory) dataDirectories[TeHeader.IMAGE_DIRECTORY_ENTRY_EXPORT];
 
 		if (edd == null) {
 			return;
@@ -596,7 +553,7 @@ public class TeLoader extends AbstractTeDebugLoader {
 		}
 	}
 
-	private Map<Integer, Address> processMemoryBlocks(PortableExecutable pe, Program prog,
+	private Map<Integer, Address> processMemoryBlocks(TerseExecutable te, Program prog,
 			MemoryConflictHandler handler, TaskMonitor monitor, MessageLog log)
 			throws AddressOverflowException, IOException {
 
@@ -609,9 +566,9 @@ public class TeLoader extends AbstractTeDebugLoader {
 		}
 		monitor.setMessage(prog.getName() + ": processing memory blocks...");
 
-		NTHeader ntHeader = pe.getNTHeader();
+		NTHeader ntHeader = te.getNTHeader();
 		FileHeader fileHeader = ntHeader.getFileHeader();
-		OptionalHeader optionalHeader = ntHeader.getOptionalHeader();
+		TeHeader teHeader = ntHeader.getTeHeader();
 
 		MemoryBlockUtil mbu = new MemoryBlockUtil(prog, handler);
 
@@ -623,7 +580,7 @@ public class TeLoader extends AbstractTeDebugLoader {
 		// Header block
 		try {
 			int virtualSize = getVirtualSize(pe, sections, space);
-			long addr = optionalHeader.getImageBase();
+			long addr = teHeader.getImageBase();
 			Address address = space.getAddress(addr);
 
 			boolean r = true;
@@ -650,7 +607,7 @@ public class TeLoader extends AbstractTeDebugLoader {
 					return sectionNumberToAddress;
 				}
 
-				long addr = sections[i].getVirtualAddress() + optionalHeader.getImageBase();
+				long addr = sections[i].getVirtualAddress() + teHeader.getImageBase();
 
 				Address address = space.getAddress(addr);
 
@@ -669,9 +626,9 @@ public class TeLoader extends AbstractTeDebugLoader {
 							((rawDataSize > virtualSize && virtualSize > 0) || rawDataSize < 0)
 									? virtualSize : rawDataSize;
 						if (ntHeader.checkRVA(dataSize) ||
-							(0 < dataSize && dataSize < pe.getFileLength())) {
+							(0 < dataSize && dataSize < te.getFileLength())) {
 							if (!ntHeader.checkRVA(dataSize)) {
-								Msg.warn(this, "OptionalHeader.SizeOfImage < size of " +
+								Msg.warn(this, "TeHeader.SizeOfImage < size of " +
 									sections[i].getName() + " section");
 							}
 							mbu.createInitializedBlock(sections[i].getReadableName(), address,
@@ -714,7 +671,7 @@ public class TeLoader extends AbstractTeDebugLoader {
 			}
 		}
 		catch (IllegalStateException ise) {
-			if (optionalHeader.getFileAlignment() != optionalHeader.getSectionAlignment()) {
+			if (teHeader.getFileAlignment() != teHeader.getSectionAlignment()) {
 				throw new IllegalStateException(ise);
 			}
 			Msg.warn(this, "Section header processing aborted");
@@ -728,28 +685,28 @@ public class TeLoader extends AbstractTeDebugLoader {
 		return sectionNumberToAddress;
 	}
 
-	private int getVirtualSize(PortableExecutable pe, SectionHeader[] sections,
+	private int getVirtualSize(TerseExecutable te, SectionHeader[] sections,
 			AddressSpace space) {
-		DOSHeader dosHeader = pe.getDOSHeader();
-		OptionalHeader optionalHeader = pe.getNTHeader().getOptionalHeader();
-		int virtualSize = optionalHeader.is64bit() ? Constants.IMAGE_SIZEOF_NT_OPTIONAL64_HEADER
+		DOSHeader dosHeader = te.getDOSHeader();
+		TeHeader teHeader = te.getNTHeader().getTeHeader();
+		int virtualSize = teHeader.is64bit() ? Constants.IMAGE_SIZEOF_NT_OPTIONAL64_HEADER
 				: Constants.IMAGE_SIZEOF_NT_OPTIONAL32_HEADER;
 		virtualSize += FileHeader.IMAGE_SIZEOF_FILE_HEADER + 4;
 		virtualSize += dosHeader.e_lfanew();
-		if (optionalHeader.getSizeOfHeaders() > virtualSize) {
-			virtualSize = (int) optionalHeader.getSizeOfHeaders();
+		if (teHeader.getSizeOfHeaders() > virtualSize) {
+			virtualSize = (int) teHeader.getSizeOfHeaders();
 		}
 
-		if (optionalHeader.getFileAlignment() == optionalHeader.getSectionAlignment()) {
-			if (optionalHeader.getFileAlignment() <= 0x800) {
+		if (teHeader.getFileAlignment() == teHeader.getSectionAlignment()) {
+			if (teHeader.getFileAlignment() <= 0x800) {
 				Msg.warn(this,
 					"File and section alignments identical - possible driver or sectionless image");
 			}
 		}
-		//long max = space.getMaxAddress().getOffset() - optionalHeader.getImageBase();
+		//long max = space.getMaxAddress().getOffset() - teHeader.getImageBase();
 		//if (virtualSize > max) {
 		//	virtualSize = (int) max;
-		//	Msg.error(this, "Possible truncation of image at "+Long.toHexString(optionalHeader.getImageBase()));
+		//	Msg.error(this, "Possible truncation of image at "+Long.toHexString(teHeader.getImageBase()));
 		//}
 		return virtualSize;
 	}
@@ -760,12 +717,12 @@ public class TeLoader extends AbstractTeDebugLoader {
 		}
 		monitor.setMessage(prog.getName() + ": processing entry points...");
 
-		OptionalHeader optionalHeader = ntHeader.getOptionalHeader();
+		TeHeader teHeader = ntHeader.getTeHeader();
 		AddressFactory af = prog.getAddressFactory();
 		AddressSpace space = af.getDefaultAddressSpace();
 		SymbolTable symTable = prog.getSymbolTable();
 
-		long entry = optionalHeader.getAddressOfEntryPoint();
+		long entry = teHeader.getAddressOfEntryPoint();
 		int ptr = ntHeader.rvaToPointer((int) entry);
 		if (ptr < 0) {
 			if (entry != 0 ||
@@ -774,9 +731,9 @@ public class TeLoader extends AbstractTeDebugLoader {
 			}
 		}
 		Address baseAddr = space.getAddress(entry);
-		long imageBase = optionalHeader.getImageBase();
+		long imageBase = teHeader.getImageBase();
 		Address entryAddr = baseAddr.addWrap(imageBase);
-		entry += optionalHeader.getImageBase();
+		entry += teHeader.getImageBase();
 		try {
 			symTable.createLabel(entryAddr, "entry", SourceType.IMPORTED);
 			markAsCode(prog, entryAddr);
@@ -787,19 +744,19 @@ public class TeLoader extends AbstractTeDebugLoader {
 		symTable.addExternalEntryPoint(entryAddr);
 	}
 
-	private void processDebug(OptionalHeader optionalHeader,
+	private void processDebug(TeHeader teHeader,
 			Map<Integer, Address> sectionNumberToAddress, Program program, TaskMonitor monitor) {
 		if (monitor.isCancelled()) {
 			return;
 		}
 		monitor.setMessage(program.getName() + ": processing debug information...");
 
-		DataDirectory[] dataDirectories = optionalHeader.getDataDirectories();
-		if (dataDirectories.length <= OptionalHeader.IMAGE_DIRECTORY_ENTRY_DEBUG) {
+		DataDirectory[] dataDirectories = teHeader.getDataDirectories();
+		if (dataDirectories.length <= TeHeader.IMAGE_DIRECTORY_ENTRY_DEBUG) {
 			return;
 		}
 		DebugDataDirectory ddd =
-			(DebugDataDirectory) dataDirectories[OptionalHeader.IMAGE_DIRECTORY_ENTRY_DEBUG];
+			(DebugDataDirectory) dataDirectories[TeHeader.IMAGE_DIRECTORY_ENTRY_DEBUG];
 
 		if (ddd == null) {
 			return;
@@ -899,7 +856,7 @@ public class TeLoader extends AbstractTeDebugLoader {
 			return (i == chararray.length);
 		}
 
-		public static CompilerEnum getOpinion(PortableExecutable pe, ByteProvider provider)
+		public static CompilerEnum getOpinion(TerseExecutable te, ByteProvider provider)
 				throws IOException {
 			CompilerEnum compilerType = CompilerEnum.Unknown;
 			CompilerEnum offsetChoice = CompilerEnum.Unknown;
@@ -907,10 +864,10 @@ public class TeLoader extends AbstractTeDebugLoader {
 			CompilerEnum errStringChoice = CompilerEnum.Unknown;
 			BinaryReader br = new BinaryReader(provider, true);
 
-			DOSHeader dh = pe.getDOSHeader();
+			DOSHeader dh = te.getDOSHeader();
 
 			// Check for managed code (.NET)
-			if (pe.getNTHeader().getOptionalHeader().isCLI()) {
+			if (te.getNTHeader().getTeHeader().isCLI()) {
 				return CompilerEnum.CLI;
 			}
 
@@ -1049,7 +1006,7 @@ public class TeLoader extends AbstractTeDebugLoader {
 			boolean probablyNotVS = false;
 			// TODO: See if we have an .idata segment and what type it is
 			// Need to make sure that this is the right check to be making
-			SectionHeader[] headers = pe.getNTHeader().getFileHeader().getSectionHeaders();
+			SectionHeader[] headers = te.getNTHeader().getFileHeader().getSectionHeaders();
 			if (getSectionHeader(".idata", headers) != null) {
 				probablyNotVS = true;
 			}
