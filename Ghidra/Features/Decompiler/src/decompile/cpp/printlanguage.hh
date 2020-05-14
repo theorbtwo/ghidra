@@ -431,6 +431,11 @@ public:
   /// \param nm is the configuration description
   virtual void setCommentStyle(const string &nm)=0;
 
+  /// \brief Set the indentation style used in the decompiler output
+  ///
+  /// \param nm is the configuration description
+  virtual void setIndentationStyle(const string &nm)=0;
+
   /// \brief Decide is the given byte array looks like a character string
   ///
   /// This looks for encodings and/or a terminator that is appropriate for the high-level language

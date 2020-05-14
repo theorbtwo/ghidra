@@ -189,6 +189,28 @@ public class DecompileOptions {
 
 	private final static CommentStyleEnum COMMENTSTYLE_OPTIONDEFAULT = CommentStyleEnum.CStyle;
 	private CommentStyleEnum commentStyle;
+	
+	private final static String INDENTATIONSTYLE_OPTIONSTRING = "Display.Indentation style";
+	private final static String INDENTATIONSTYLE_OPTIONDESCRIPTION = "The indentation style to be used";
+	
+	public enum IndentationStyleEnum {
+		
+		KR("K&R style"), Allman("Allman style");
+		
+		private String label;
+		
+		private IndentationStyleEnum(String label) {
+			this.label = label;
+		}
+		
+		@Override
+		public String toString() {
+			return label;
+		}
+	}	
+
+	private final static IndentationStyleEnum INDENTATIONSTYLE_OPTIONDEFAULT = IndentationStyleEnum.KR;
+	private IndentationStyleEnum indentationStyle;
 
 	private final static String COMMENTPRE_OPTIONSTRING = "Display.Display PRE comments";
 	private final static String COMMENTPRE_OPTIONDESCRIPTION =
@@ -355,6 +377,7 @@ public class DecompileOptions {
 		commentWARNInclude = COMMENTWARN_OPTIONDEFAULT;
 		commentHeadInclude = COMMENTHEAD_OPTIONDEFAULT;
 		integerFormat = INTEGERFORMAT_OPTIONDEFAULT;
+		indentationStyle = INDENTATIONSTYLE_OPTIONDEFAULT;
 		keywordColor = HIGHLIGHT_KEYWORD_DEF;
 		functionColor = HIGHLIGHT_FUNCTION_DEF;
 		commentColor = HIGHLIGHT_COMMENT_DEF;
@@ -373,6 +396,7 @@ public class DecompileOptions {
 		decompileTimeoutSeconds = SUGGESTED_DECOMPILE_TIMEOUT_SECS;
 		payloadLimitMBytes = SUGGESTED_MAX_PAYLOAD_BYTES;
 		cachedResultsSize = SUGGESTED_CACHED_RESULTS_SIZE;
+		
 	}
 
 	/**
@@ -408,6 +432,7 @@ public class DecompileOptions {
 		indentwidth = opt.getInt(INDENTWIDTH_OPTIONSTRING, INDENTWIDTH_OPTIONDEFAULT);
 		commentindent = opt.getInt(COMMENTINDENT_OPTIONSTRING, COMMENTINDENT_OPTIONDEFAULT);
 		commentStyle = opt.getEnum(COMMENTSTYLE_OPTIONSTRING, COMMENTSTYLE_OPTIONDEFAULT);
+		indentationStyle = opt.getEnum(INDENTATIONSTYLE_OPTIONSTRING, INDENTATIONSTYLE_OPTIONDEFAULT);
 		commentEOLInclude = opt.getBoolean(COMMENTEOL_OPTIONSTRING, COMMENTEOL_OPTIONDEFAULT);
 		commentPREInclude = opt.getBoolean(COMMENTPRE_OPTIONSTRING, COMMENTPRE_OPTIONDEFAULT);
 		commentPOSTInclude = opt.getBoolean(COMMENTPOST_OPTIONSTRING, COMMENTPOST_OPTIONDEFAULT);
@@ -529,6 +554,8 @@ public class DecompileOptions {
 			COMMENTINDENT_OPTIONDESCRIPTION);
 		opt.registerOption(COMMENTSTYLE_OPTIONSTRING, COMMENTSTYLE_OPTIONDEFAULT, help,
 			COMMENTSTYLE_OPTIONDESCRIPTION);
+		opt.registerOption(INDENTATIONSTYLE_OPTIONSTRING,  INDENTATIONSTYLE_OPTIONDEFAULT,  help,
+			INDENTATIONSTYLE_OPTIONDESCRIPTION);
 		opt.registerOption(COMMENTEOL_OPTIONSTRING, COMMENTEOL_OPTIONDEFAULT, help,
 			COMMENTEOL_OPTIONDESCRIPTION);
 		opt.registerOption(COMMENTPRE_OPTIONSTRING, COMMENTPRE_OPTIONDEFAULT, help,
@@ -642,6 +669,8 @@ public class DecompileOptions {
 		appendOption(buf, "commentindent", Integer.toString(commentindent), "", "");
 		String curstyle = CommentStyleEnum.CPPStyle.equals(commentStyle) ? "cplusplus" : "c";
 		appendOption(buf, "commentstyle", curstyle, "", "");
+		String indentationstyle = IndentationStyleEnum.KR.equals(indentationStyle) ? "kr" : "allman";
+		appendOption(buf, "indentationstyle", indentationstyle, "", "");
 		appendOption(buf, "commentinstruction", "header", commentPLATEInclude ? "on" : "off", "");
 		appendOption(buf, "commentinstruction", "user2", commentPREInclude ? "on" : "off", "");
 		appendOption(buf, "commentinstruction", "user1", commentEOLInclude ? "on" : "off", "");
@@ -845,6 +874,14 @@ public class DecompileOptions {
 
 	public void setCommentStyle(CommentStyleEnum commentStyle) {
 		this.commentStyle = commentStyle;
+	}
+	
+	public IndentationStyleEnum getIndentationStyle() {
+		return indentationStyle;
+	}
+	
+	public void setIndentationStyle(IndentationStyleEnum indentationStyle) {
+		this.indentationStyle = indentationStyle;
 	}
 
 	public int getCacheSize() {

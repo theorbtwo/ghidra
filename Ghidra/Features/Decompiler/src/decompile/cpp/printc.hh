@@ -62,6 +62,11 @@ struct PartialSymbolEntry {
 ///  - etc.
 class PrintC : public PrintLanguage {
 protected:
+  /// \brief Possible types of indentation style
+  enum indentation_style {
+    indentation_style_kr = 0,		/// K&R style indentation
+    indentation_style_allman = 1    /// Allman styles indentation
+  };
   static OpToken hidden;		///< Hidden functional (that may force parentheses)
   static OpToken scope;			///< The sub-scope/namespace operator
   static OpToken object_member;		///< The \e member operator
@@ -118,6 +123,7 @@ protected:
   bool option_nocasts;		///< Don't print a cast if \b true
   bool option_unplaced;		///< Set to \b true if we should display unplaced comments
   bool option_hide_exts;	///< Set to \b true if we should hide implied extension operations
+  indentation_style option_indentationStyle;  ///< Set to the prefered type of indentation style
   string nullToken;		///< Token to use for 'null'
   CommentSorter commsorter;	///< Container/organizer for comments in the current function
 
@@ -202,6 +208,7 @@ public:
   virtual ~PrintC(void) {}
   virtual void adjustTypeOperators(void);
   virtual void setCommentStyle(const string &nm);
+  virtual void setIndentationStyle(const string &nm);
   virtual bool isCharacterConstant(const uint1 *buf,int4 size,int4 charsize) const;
   virtual void docTypeDefinitions(const TypeFactory *typegrp);
   virtual void docAllGlobals(void);
@@ -219,6 +226,7 @@ public:
   virtual void emitBlockDoWhile(const BlockDoWhile *bl);
   virtual void emitBlockInfLoop(const BlockInfLoop *bl);
   virtual void emitBlockSwitch(const BlockSwitch *bl);
+  virtual int4 emitFormatedStartBrace(int4 indent);
 
   virtual void opCopy(const PcodeOp *op);
   virtual void opLoad(const PcodeOp *op);

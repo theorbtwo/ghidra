@@ -174,6 +174,12 @@ public:
   virtual string apply(Architecture *glb,const string &p1,const string &p2,const string &p3) const;
 };
 
+class OptionIndentationStyle : public ArchOption {
+public:
+  OptionIndentationStyle(void) { name = "indentationstyle"; }	///< Constructor
+  virtual string apply(Architecture *glb,const string &p1,const string &p2,const string &p3) const;
+};
+
 class OptionCommentHeader : public ArchOption {
 public:
   OptionCommentHeader(void) { name = "commentheader"; }	///< Constructor

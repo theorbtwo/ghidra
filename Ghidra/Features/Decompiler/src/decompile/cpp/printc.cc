@@ -1735,7 +1735,7 @@ void PrintC::emitStructDefinition(const TypeStruct *ct)
   emit->print("typedef struct",EmitXml::keyword_color);
   emit->spaces(1);
   int4 id = emit->startIndent();
-  emit->print("{");
+  id = emitFormatedStartBrace(id);
   emit->tagLine();
   iter = ct->beginField();
   while(iter!=ct->endField()) {
@@ -1774,7 +1774,7 @@ void PrintC::emitEnumDefinition(const TypeEnum *ct)
   emit->print("typedef enum",EmitXml::keyword_color);
   emit->spaces(1);
   int4 id = emit->startIndent();
-  emit->print("{");
+  id = emitFormatedStartBrace(id);
   emit->tagLine();
   iter = ct->beginEnum();
   while(iter!=ct->endEnum()) {
@@ -1948,6 +1948,17 @@ void PrintC::setCommentStyle(const string &nm)
     setCPlusPlusStyleComments();
   else
     throw LowlevelError("Unknown comment style. Use \"c\" or \"cplusplus\"");
+}
+
+void PrintC::setIndentationStyle(const string &nm)
+
+{
+  if (nm=="kr")
+    option_indentationStyle = indentation_style_kr;
+  else if (nm=="allman")
+    option_indentationStyle = indentation_style_allman;
+  else
+    throw LowlevelError("Unknown indentation style. Use \"kr\" or \"allman\"");
 }
 
 bool PrintC::isCharacterConstant(const uint1 *buf,int4 size,int4 charsize) const
@@ -2264,7 +2275,8 @@ void PrintC::docFunction(const Funcdata *fd)
     emit->tagLine();
     emit->tagLine();
     int4 id = emit->startIndent();
-    emit->print("{");
+    // Intentionally not using a formatted start brace
+    emit->print("{");      
     emitLocalVarDecls(fd);
     if (isSet(flat))
       emitBlockGraph(&fd->getBasicBlocks());
@@ -2516,7 +2528,7 @@ void PrintC::emitBlockIf(const BlockIf *bl)
   setMod(no_branch);
   emit->spaces(1);
   int4 id = emit->startIndent();
-  emit->print("{");
+  id = emitFormatedStartBrace(id);
   int4 id1 = emit->beginBlock(bl->getBlock(1));
   bl->getBlock(1)->emit(this);
   emit->endBlock(id1);
@@ -2528,7 +2540,7 @@ void PrintC::emitBlockIf(const BlockIf *bl)
     emit->print("else",EmitXml::keyword_color);
     emit->spaces(1);
     int4 id = emit->startIndent();
-    emit->print("{");
+    id = emitFormatedStartBrace(id);
     int4 id2 = emit->beginBlock(bl->getBlock(2));
     bl->getBlock(2)->emit(this);
     emit->endBlock(id2);
@@ -2563,7 +2575,7 @@ void PrintC::emitBlockWhileDo(const BlockWhileDo *bl)
     emit->closeParen(')',id1);
     emit->spaces(1);
     indent = emit->startIndent();
-    emit->print("{");
+    indent = emitFormatedStartBrace(indent);
     pushMod();
     setMod(no_branch);
     bl->getBlock(0)->emit(this);
@@ -2591,7 +2603,7 @@ void PrintC::emitBlockWhileDo(const BlockWhileDo *bl)
     emit->closeParen(')',id1);
     emit->spaces(1);
     indent = emit->startIndent();
-    emit->print("{");
+    indent = emitFormatedStartBrace(indent);
   }
   setMod(no_branch); // Dont print goto at bottom of clause
   int4 id2 = emit->beginBlock(bl->getBlock(1));
@@ -2616,7 +2628,7 @@ void PrintC::emitBlockDoWhile(const BlockDoWhile *bl)
   emit->print("do",EmitXml::keyword_color);
   emit->spaces(1);
   int4 id = emit->startIndent();
-  emit->print("{");
+  id = emitFormatedStartBrace(id);
   pushMod();
   int4 id2 = emit->beginBlock(bl->getBlock(0));
   setMod(no_branch);
@@ -2648,7 +2660,7 @@ void PrintC::emitBlockInfLoop(const BlockInfLoop *bl)
   emit->print("do",EmitXml::keyword_color);
   emit->spaces(1);
   int4 id = emit->startIndent();
-  emit->print("{");
+  id = emitFormatedStartBrace(id);
   int4 id1 = emit->beginBlock(bl->getBlock(0));
   bl->getBlock(0)->emit(this);
   emit->endBlock(id1);
@@ -2841,7 +2853,7 @@ void PrintC::emitBlockSwitch(const BlockSwitch *bl)
   bl->getSwitchBlock()->emit(this);
   popMod();
   emit->spaces(1);
-  emit->print("{");
+  emitFormatedStartBrace(NULL);
 
   for(int4 i=0;i<bl->getNumCaseBlocks();++i) {
     emitSwitchCase(i,bl);
@@ -2865,6 +2877,33 @@ void PrintC::emitBlockSwitch(const BlockSwitch *bl)
   emit->tagLine();
   emit->print("}");
   popMod();
+}
+
+/// \brief Emits an opening brace according to the indentation style selected in options
+int4 PrintC::emitFormatedStartBrace(int4 indent)
+
+{
+  if (option_indentationStyle == indentation_style_allman) {
+  	if (NULL != indent) {
+  	 emit->stopIndent(indent);
+  	}
+  	
+  	emit->tagLine();
+    emit->print("{");
+    
+    if (NULL != indent) {
+      indent = emit->startIndent();
+    }
+  }
+  else if (option_indentationStyle == indentation_style_kr){
+    emit->print("{");
+  }
+  else {
+    throw LowlevelError("Unkown indentation style");
+  }
+  
+  return indent;
+
 }
 
 /// \brief Create a generic function name base on the entry point address
