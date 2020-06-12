@@ -226,7 +226,7 @@ public:
   virtual void emitBlockDoWhile(const BlockDoWhile *bl);
   virtual void emitBlockInfLoop(const BlockInfLoop *bl);
   virtual void emitBlockSwitch(const BlockSwitch *bl);
-  virtual int4 emitFormatedStartBrace(int4 indent);
+  virtual int4 emitFormattedStartBrace(int4 indent);
 
   virtual void opCopy(const PcodeOp *op);
   virtual void opLoad(const PcodeOp *op);
