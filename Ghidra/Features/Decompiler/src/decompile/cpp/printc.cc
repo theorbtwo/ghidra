@@ -1929,39 +1929,17 @@ void PrintC::setCommentStyle(const string &nm)
     throw LowlevelError("Unknown comment style. Use \"c\" or \"cplusplus\"");
 }
 
-/// \brief Emit the definition of the given data-type
-///
-/// This is currently limited to a 'struct' or 'enum' definitions. The
-/// definition is emitted so that name associated with data-type object
-/// will be associated with the definition (in anything that parses it)
-/// \param ct is the given data-type
-void PrintC::emitTypeDefinition(const Datatype *ct)
+void PrintC::setIndentationStyle(const string &nm)
 
 {
-#ifdef CPUI_DEBUG
-  if (!isStackEmpty()) {
-    clear();
-    throw LowlevelError("Expression stack not empty at beginning of emit");
-  }
-#endif
-  if (ct->getMetatype() == TYPE_STRUCT)
-    emitStructDefinition((const TypeStruct *)ct);
-  else if (ct->isEnumType())
-    emitEnumDefinition((const TypeEnum *)ct);
-  else {
-    clear();
-    throw LowlevelError("Unsupported typedef");
-  }
+  if (nm=="kr")
+    option_indentationStyle = indentation_style_kr;
+  else if (nm=="allman")
+    option_indentationStyle = indentation_style_allman;
+  else
+    throw LowlevelError("Unknown indentation style. Use \"kr\" or \"allman\"");
 }
 
-bool PrintC::checkPrintNegation(const Varnode *vn)
-
-{
-  if (!vn->isImplied()) return false;
-  if (!vn->isWritten()) return false;
-  const PcodeOp *op = vn->getDef();
-  bool reorder = false;
-  OpCode opc = get_booleanflip(op->code(),reorder); // This is the set of ops that can be negated as a token
 /// \brief Emit the definition of the given data-type
 ///
 /// This is currently limited to a 'struct' or 'enum' definitions. The
