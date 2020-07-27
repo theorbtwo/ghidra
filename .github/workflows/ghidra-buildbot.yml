@@ -5,6 +5,9 @@ jobs:
   build-lnx:
     name: Linux
     runs-on: ubuntu-latest
+    env:
+      # swy: store the buildbot caches in the repo folder; easier to restore
+      GRADLE_USER_HOME: ${{github.workspace}}/.gradle-user
     steps:
     - uses: actions/checkout@v2
     - name: Setup Java JDK
@@ -25,6 +28,16 @@ jobs:
         path: build/downloads
         key: ghidra
 
+    - name: Restore the Gradle cache
+      uses: actions/cache@v2
+      with:
+        path: |
+          .gradle-user/caches
+          .gradle-user/wrapper
+        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*') }}
+        restore-keys: |
+          ${{ runner.os }}-gradle-
+
     - name: Build Ghidra
       run: |
         gradle --init-script gradle/support/fetchDependencies.gradle init --parallel
@@ -40,6 +53,9 @@ jobs:
   build-win:
     name: Windows
     runs-on: windows-latest
+    env:
+      # swy: store the buildbot caches in the repo folder; easier to restore
+      GRADLE_USER_HOME: ${{github.workspace}}/.gradle-user
     steps:
     - uses: actions/checkout@v2
     - name: Setup Java JDK
@@ -64,6 +80,16 @@ jobs:
         path: build/downloads
         key: ghidra
 
+    - name: Restore the Gradle cache
+      uses: actions/cache@v2
+      with:
+        path: |
+          .gradle-user/caches
+          .gradle-user/wrapper
+        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*') }}
+        restore-keys: |
+          ${{ runner.os }}-gradle-
+
     - name: Build Ghidra
       run: |
         gradle --init-script gradle/support/fetchDependencies.gradle init --parallel
@@ -80,6 +106,9 @@ jobs:
   build-mac:
     name: macOS
     runs-on: macos-latest
+    env:
+      # swy: store the buildbot caches in the repo folder; easier to restore
+      GRADLE_USER_HOME: ${{github.workspace}}/.gradle-user
     steps:
     - uses: actions/checkout@v2
     - name: Setup Java JDK
@@ -97,6 +126,16 @@ jobs:
       with:
         path: build/downloads
         key: ghidra
+
+    - name: Restore the Gradle cache
+      uses: actions/cache@v2
+      with:
+        path: |
+          .gradle-user/caches
+          .gradle-user/wrapper
+        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*') }}
+        restore-keys: |
+          ${{ runner.os }}-gradle-
 
     - name: Build Ghidra
       run: |
