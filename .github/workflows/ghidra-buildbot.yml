@@ -27,8 +27,8 @@ jobs:
 
     - name: Build Ghidra
       run: |
-        gradle --init-script gradle/support/fetchDependencies.gradle init
-        gradle buildGhidra
+        gradle --init-script gradle/support/fetchDependencies.gradle init --parallel
+        gradle buildGhidra --parallel
         
     - name: Archive production artifacts
       uses: actions/upload-artifact@v2
@@ -66,9 +66,9 @@ jobs:
 
     - name: Build Ghidra
       run: |
-        gradle --init-script gradle/support/fetchDependencies.gradle init
+        gradle --init-script gradle/support/fetchDependencies.gradle init --parallel
         $env:Path += ";$env:programdata\chocolatey\lib\winflexbison\tools"
-        gradle buildGhidra
+        gradle buildGhidra --parallel
         
     - name: Archive production artifacts
       uses: actions/upload-artifact@v2
@@ -100,8 +100,8 @@ jobs:
 
     - name: Build Ghidra
       run: |
-        gradle --init-script gradle/support/fetchDependencies.gradle init
-        gradle buildGhidra
+        gradle --init-script gradle/support/fetchDependencies.gradle init --parallel
+        gradle buildGhidra --parallel
         
     - name: Archive production artifacts
       uses: actions/upload-artifact@v2
