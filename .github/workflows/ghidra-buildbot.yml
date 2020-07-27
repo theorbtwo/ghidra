@@ -34,7 +34,7 @@ jobs:
       uses: actions/upload-artifact@v2
       with:
         name: Linux
-        path: ghidra/build/dist/
+        path: build/dist/
 
   # swy: 64-bit windows build --
   build-win:
