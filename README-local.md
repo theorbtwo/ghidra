@@ -19,5 +19,6 @@ windows quoting fixes
 more PE known noreturn functions
  https://github.com/xiaoyinl/ghidra/tree/master
  git pull xiaoyinl master
-
-
+decompiler output indentation pref
+ https://github.com/NationalSecurityAgency/ghidra/pull/1938
+ git pull js53867 feature/add-indentation-style-preference
