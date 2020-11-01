@@ -70,6 +70,7 @@ OptionDatabase::OptionDatabase(Architecture *g)
   registerOption(new OptionIndentIncrement());
   registerOption(new OptionCommentIndent());
   registerOption(new OptionCommentStyle());
+  registerOption(new OptionIndentationStyle());
   registerOption(new OptionCommentHeader());
   registerOption(new OptionCommentInstruction());
   registerOption(new OptionIntegerFormat());
@@ -474,6 +475,18 @@ string OptionCommentStyle::apply(Architecture *glb,const string &p1,const string
 {
   glb->print->setCommentStyle(p1);
   return "Comment style set to "+p1;
+}
+
+/// \class OptionIndentationStyle
+/// \brief Set the style of indentation emitted by the decompiler
+///
+/// The first parameter is either "allman", or "kr", other styles could be
+/// supported in the future 
+string OptionIndentationStyle::apply(Architecture *glb,const string &p1,const string &p2,const string &p3) const
+
+{
+	glb->print->setIndentationStyle(p1);
+	return "Indentation style set to "+p1;
 }
 
 /// \class OptionCommentHeader
