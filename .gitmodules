@@ -1,0 +1,3 @@
+[submodule "vc4b"]
+	path = Ghidra/Processors/Xtensa
+	url = https://github.com/yath/ghidra-xtensa
