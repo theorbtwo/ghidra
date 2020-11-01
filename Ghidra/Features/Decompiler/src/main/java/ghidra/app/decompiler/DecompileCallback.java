@@ -500,7 +500,7 @@ public class DecompileCallback {
 			}
 			String res = getSymbolName(sym);
 			if (debug != null) {
-				debug.getSymbol(addr, res);
+				debug.getCodeSymbol(addr, sym.getID(), res, sym.getParentNamespace());
 			}
 
 			return res;
@@ -563,7 +563,7 @@ public class DecompileCallback {
 		int pathSize = 0;
 		Namespace curspace = namespace;
 		long curId = namespace.getID();
-		while (curId != stopId && curId != 0 && !(curspace instanceof Library)) {
+		while (curId != stopId && curId != 0 && !HighFunction.collapseToGlobal(curspace)) {
 			pathSize += 1;
 			curspace = curspace.getParentNamespace();
 			curId = curspace.getID();
@@ -610,7 +610,10 @@ public class DecompileCallback {
 	public String getNamespacePath(long id) {
 		Namespace namespace = getNameSpaceByID(id);
 		StringBuilder buf = new StringBuilder();
-		HighFunction.createNamespaceTag(buf, namespace, true);
+		HighFunction.createNamespaceTag(buf, namespace);
+		if (debug != null) {
+			debug.getNamespacePath(namespace);
+		}
 		return buf.toString();
 	}
 
@@ -754,8 +757,17 @@ public class DecompileCallback {
 				if (extRef != null) {
 					func = listing.getFunctionAt(extRef.getToAddress());
 					if (func == null) {
+						Symbol symbol = extRef.getExternalLocation().getSymbol();
+						long extId;
+						if (symbol != null) {
+							extId = symbol.getID();
+						}
+						else {
+							extId = program.getSymbolTable().getDynamicSymbolID(addr);
+
+						}
 						HighSymbol shellSymbol =
-							new HighFunctionShellSymbol(0, extRef.getLabel(), addr, dtmanage);
+							new HighFunctionShellSymbol(extId, extRef.getLabel(), addr, dtmanage);
 						return buildResult(shellSymbol, null);
 					}
 				}
@@ -839,16 +851,13 @@ public class DecompileCallback {
 			return null;
 		}
 		ProgramContext context = program.getProgramContext();
-		Register[] regs = context.getRegisters();
-		if (regs == null || regs.length == 0) {
-			return null;
-		}
+
 		StringBuilder stringBuf = new StringBuilder();
 
 		stringBuf.append("<tracked_pointset");
 		Varnode.appendSpaceOffset(stringBuf, addr);
 		stringBuf.append(">\n");
-		for (Register reg : regs) {
+		for (Register reg : context.getRegisters()) {
 			if (reg.isProcessorContext()) {
 				continue;
 			}

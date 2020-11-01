@@ -28,10 +28,10 @@ import ghidra.util.task.TaskMonitor;
 
 public class DefaultGraphDisplayProvider implements GraphDisplayProvider {
 
-	private Set<DefaultGraphDisplay> displays = new HashSet<>();
+	private final Set<DefaultGraphDisplay> displays = new HashSet<>();
 	private PluginTool pluginTool;
 	private Options options;
-	private int displayCounter;
+	private int displayCounter = 1;
 
 	@Override
 	public String getName() {
@@ -51,7 +51,9 @@ public class DefaultGraphDisplayProvider implements GraphDisplayProvider {
 			TaskMonitor monitor) {
 
 		if (reuseGraph && !displays.isEmpty()) {
-			return getVisibleGraph();
+			DefaultGraphDisplay visibleGraph = getVisibleGraph();
+			visibleGraph.restoreToDefaultSetOfActions();
+			return visibleGraph;
 		}
 
 		DefaultGraphDisplay display =
@@ -73,9 +75,11 @@ public class DefaultGraphDisplayProvider implements GraphDisplayProvider {
 	 * return one from the Set via its iterator
 	 * @return a display that is showing
 	 */
-	private GraphDisplay getVisibleGraph() {
-		return displays.stream().filter(d -> d.getComponent().isShowing())
-				.findAny().orElse(displays.iterator().next());
+	private DefaultGraphDisplay getVisibleGraph() {
+		return displays.stream()
+				.filter(d -> d.getComponent().isShowing())
+				.findAny()
+				.orElse(displays.iterator().next());
 	}
 
 	@Override
@@ -100,4 +104,5 @@ public class DefaultGraphDisplayProvider implements GraphDisplayProvider {
 	public void remove(DefaultGraphDisplay defaultGraphDisplay) {
 		displays.remove(defaultGraphDisplay);
 	}
+
 }

@@ -18,6 +18,7 @@ package ghidra.graph.program;
 import java.awt.Color;
 import java.util.*;
 
+import docking.widgets.EventTrigger;
 import ghidra.app.plugin.core.colorizer.ColorizingService;
 import ghidra.framework.plugintool.PluginTool;
 import ghidra.program.model.address.Address;
@@ -112,7 +113,6 @@ public class BlockGraphTask extends Task {
 	private String actionName;
 	private Program program;
 
-
 	public BlockGraphTask(String actionName, boolean graphEntryPointNexus, boolean showCode,
 			boolean reuseGraph, boolean appendGraph, PluginTool tool, ProgramSelection selection,
 			ProgramLocation location, CodeBlockModel blockModel,
@@ -153,15 +153,18 @@ public class BlockGraphTask extends Task {
 				display.setVertexLabel(CODE_ATTRIBUTE, GraphDisplay.ALIGN_LEFT, 12, true,
 					codeLimitPerBlock + 1);
 			}
-			display.setGraph(graph, actionName, appendGraph, monitor);
+			display.setGraph(graph, getDescription(), appendGraph, monitor);
 
 			if (location != null) {
-				display.setLocation(listener.getVertexIdForAddress(location.getAddress()));
+				// initialize the graph location, but don't have the graph send an event
+				AttributedVertex vertex = listener.getVertex(location.getAddress());
+				display.setFocusedVertex(vertex, EventTrigger.INTERNAL_ONLY);
 			}
 			if (selection != null && !selection.isEmpty()) {
-				List<String> selectedVertices = listener.getVertices(selection);
+				Set<AttributedVertex> selectedVertices = listener.getVertices(selection);
 				if (selectedVertices != null) {
-					display.selectVertices(selectedVertices);
+					// initialize the graph selection, but don't have the graph send an event
+					display.selectVertices(selectedVertices, EventTrigger.INTERNAL_ONLY);
 				}
 			}
 		}
@@ -170,6 +173,17 @@ public class BlockGraphTask extends Task {
 				Msg.showError(this, null, "Graphing Error", e.getMessage());
 			}
 		}
+	}
+
+	private String getDescription() {
+		String description = actionName;
+		if (selection != null && !selection.isEmpty()) {
+			description += ": " + selection.getMinAddress();
+		}
+		else {
+			description += " (Entire Program)";
+		}
+		return description;
 	}
 
 	/**
@@ -206,7 +220,6 @@ public class BlockGraphTask extends Task {
 		return graph;
 	}
 
-
 	private CodeBlockIterator getBlockIterator() throws CancelledException {
 		if (selection == null || selection.isEmpty()) {
 			return blockModel.getCodeBlocks(taskMonitor);
@@ -214,7 +227,8 @@ public class BlockGraphTask extends Task {
 		return blockModel.getCodeBlocksContaining(selection, taskMonitor);
 	}
 
-	private Address graphBlock(AttributedGraph graph, CodeBlock curBB, List<AttributedVertex> entries)
+	private Address graphBlock(AttributedGraph graph, CodeBlock curBB,
+			List<AttributedVertex> entries)
 			throws CancelledException {
 
 		Address[] startAddrs = curBB.getStartAddresses();
@@ -250,7 +264,6 @@ public class BlockGraphTask extends Task {
 			edge.setAttribute("EdgeType", edgeTypes[ENTRY]);
 		}
 	}
-
 
 	protected AttributedVertex graphBasicBlock(AttributedGraph graph, CodeBlock curBB)
 			throws CancelledException {
@@ -293,7 +306,8 @@ public class BlockGraphTask extends Task {
 		return fromVertex;
 	}
 
-	private void setEdgeColor(AttributedEdge edge, AttributedVertex fromVertex, AttributedVertex toVertex) {
+	private void setEdgeColor(AttributedEdge edge, AttributedVertex fromVertex,
+			AttributedVertex toVertex) {
 		// color the edge: first on the 'from' vertex, then try to 'to' vertex
 		String fromColor = fromVertex.getAttribute("Color");
 		String toColor = toVertex.getAttribute("Color");
@@ -305,7 +319,7 @@ public class BlockGraphTask extends Task {
 				edge.setAttribute("Color", toColor);
 			}
 		}
-		
+
 	}
 
 	private String getVertexId(CodeBlock bb) {

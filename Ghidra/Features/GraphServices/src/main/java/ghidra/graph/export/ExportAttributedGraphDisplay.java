@@ -15,10 +15,13 @@
  */
 package ghidra.graph.export;
 
-import java.util.List;
+import java.util.Collections;
+import java.util.Set;
 
 import org.jgrapht.Graph;
 
+import docking.action.DockingAction;
+import docking.widgets.EventTrigger;
 import ghidra.framework.plugintool.PluginTool;
 import ghidra.service.graph.*;
 import ghidra.util.Swing;
@@ -34,8 +37,8 @@ import ghidra.util.task.TaskMonitor;
  */
 class ExportAttributedGraphDisplay implements GraphDisplay {
 
-	private PluginTool pluginTool;
-	private String description;
+	private final PluginTool pluginTool;
+	private String title;
 
 	/**
 	 * Create the initial display, the graph-less visualization viewer, and its controls
@@ -55,15 +58,7 @@ class ExportAttributedGraphDisplay implements GraphDisplay {
 		// This display is not interactive, so N/A
 	}
 
-	@Override
-	public void selectVertices(List<String> vertexList) {
-		// This display is not interactive, so N/A
-	}
 
-	@Override
-	public void setLocation(String vertexID) {
-		// This display is not interactive, so N/A
-	}
 
 	/**
 	 * set the {@link AttributedGraph} for visualization
@@ -91,9 +86,9 @@ class ExportAttributedGraphDisplay implements GraphDisplay {
 	}
 
 	@Override
-	public void setGraph(AttributedGraph graphData, String description, boolean append,
+	public void setGraph(AttributedGraph graphData, String title, boolean append,
 			TaskMonitor monitor) {
-		this.description = description;
+		this.title = title;
 		doSetGraphData(graphData);
 	}
 
@@ -106,13 +101,43 @@ class ExportAttributedGraphDisplay implements GraphDisplay {
 	}
 
 	@Override
-	public void updateVertexName(String id, String newName) {
+	public void updateVertexName(AttributedVertex vertex, String newName) {
 		// do nothing
 	}
 
 	@Override
-	public String getGraphDescription() {
-		return description;
+	public String getGraphTitle() {
+		return title;
+	}
+
+	@Override
+	public void addAction(DockingAction action) {
+		// do nothing, actions are not supported by this display
+	}
+
+	@Override
+	public AttributedVertex getFocusedVertex() {
+		return null;
+	}
+
+	@Override
+	public Set<AttributedVertex> getSelectedVertices() {
+		return Collections.emptySet();
+	}
+
+	@Override
+	public void setFocusedVertex(AttributedVertex vertex, EventTrigger eventTrigger) {
+		// not interactive, so N/A
+	}
+
+	@Override
+	public AttributedGraph getGraph() {
+		return null;
+	}
+
+	@Override
+	public void selectVertices(Set<AttributedVertex> vertexList, EventTrigger eventTrigger) {
+		// not interactive, so N/A
 	}
 
 }

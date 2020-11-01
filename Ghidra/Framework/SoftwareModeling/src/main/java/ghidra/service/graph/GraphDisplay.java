@@ -15,8 +15,10 @@
  */
 package ghidra.service.graph;
 
-import java.util.List;
+import java.util.Set;
 
+import docking.action.DockingAction;
+import docking.widgets.EventTrigger;
 import ghidra.util.exception.CancelledException;
 import ghidra.util.task.TaskMonitor;
 
@@ -41,18 +43,48 @@ public interface GraphDisplay {
 	public void setGraphDisplayListener(GraphDisplayListener listener);
 
 	/**
-	 * Tells the graph display window to focus 
+	 * Tells the graph display window to focus the vertex with the given id.
 	 * 
-	 * @param vertexID the id of the vertex to focus
+	 * @param vertex the vertex to focus
+	 * @param eventTrigger Provides a hint to the GraphDisplay as to why we are updating the
+	 * graph location so that the GraphDisplay can decide if it should send out a notification via
+	 * the {@link GraphDisplayListener#locationFocusChanged(AttributedVertex)}. For example, if we
+	 * are updating the the location due to an event from the main application, we don't want to
+	 * notify the application the graph changed to avoid event cycles. See {@link EventTrigger} for
+	 * more information.
 	 */
-	public void setLocation(String vertexID);
+	public void setFocusedVertex(AttributedVertex vertex, EventTrigger eventTrigger);
+
+	/**
+	 * Returns the graph for this display
+	 * @return the graph for this display
+	 */
+	public AttributedGraph getGraph();
+
+	/**
+	 * Returns the currently focused vertex or null if no vertex is focused
+	 * @return  the currently focused vertex or null if no vertex is focused.
+	 */
+	public AttributedVertex getFocusedVertex();
 
 	/**
 	 * Tells the graph display window to select the vertices with the given ids
 	 * 
-	 * @param vertexList the list of vertex ids to select
+	 * @param vertexSet the set of vertices to select
+	 * @param eventTrigger Provides a hint to the GraphDisplay as to why we are updating the
+	 * graph location so that the GraphDisplay can decide if it should send out a notification via
+	 * the {@link GraphDisplayListener#selectionChanged(Set)}. For example, if we are updating
+	 * the the location due to an event from the main application, we don't want to notify the 
+	 * application the graph changed to avoid event cycles. See {@link EventTrigger} for more
+	 * information.
 	 */
-	public void selectVertices(List<String> vertexList);
+	public void selectVertices(Set<AttributedVertex> vertexSet, EventTrigger eventTrigger);
+
+	/**
+	 * Returns a set of vertex ids for all the currently selected vertices
+	 * @return  a set of vertex ids for all the currently selected vertices
+	 */
+	public Set<AttributedVertex> getSelectedVertices();
 
 	/**
 	 * Closes this graph display window.
@@ -87,12 +119,12 @@ public interface GraphDisplay {
 	/**
 	 * Sets the graph to be displayed or consumed by this graph display
 	 * @param graph the graph to display or consume
-	 * @param description a description of the graph
+	 * @param title a title for the graph
 	 * @param monitor a {@link TaskMonitor} which can be used to cancel the graphing operation
 	 * @param append if true, append the new graph to any existing graph.
 	 * @throws CancelledException thrown if the graphing operation was cancelled
 	 */
-	public void setGraph(AttributedGraph graph, String description, boolean append,
+	public void setGraph(AttributedGraph graph, String title, boolean append,
 			TaskMonitor monitor)
 			throws CancelledException;
 
@@ -103,14 +135,22 @@ public interface GraphDisplay {
 
 	/**
 	 * Updates a vertex to a new name
-	 * @param id the vertix id
-	 * @param newName the new name of the vertex
+	 * @param vertex the vertex to rename
+	 * @param newName the new name for the vertex
 	 */
-	public void updateVertexName(String id, String newName);
+	public void updateVertexName(AttributedVertex vertex, String newName);
 
 	/**
-	 * Returns the description of the current graph
-	 * @return the description of the current graph
+	 * Returns the title of the current graph
+	 * @return the title of the current graph
 	 */
-	public String getGraphDescription();
+	public String getGraphTitle();
+
+	/**
+	 * Adds the action to the graph display. Not all GraphDisplays support adding custom
+	 * actions, so this may have no effect.
+	 * @param action the action to add.
+	 */
+	public void addAction(DockingAction action);
+
 }

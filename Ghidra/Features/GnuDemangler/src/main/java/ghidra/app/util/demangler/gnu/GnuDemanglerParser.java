@@ -42,12 +42,8 @@ public class GnuDemanglerParser {
 	private static final String TYPEINFO_FOR = "typeinfo for ";
 	private static final String COVARIANT_RETURN_THUNK = "covariant return thunk";
 
-	private static final Set<String> ADDRESS_TABLE_PREFIXES = Set.of(
-		CONSTRUCTION_VTABLE_FOR,
-		VTT_FOR,
-		VTABLE_FOR,
-		TYPEINFO_FN_FOR,
-		TYPEINFO_FOR);
+	private static final Set<String> ADDRESS_TABLE_PREFIXES =
+		Set.of(CONSTRUCTION_VTABLE_FOR, VTT_FOR, VTABLE_FOR, TYPEINFO_FN_FOR, TYPEINFO_FOR);
 
 	private static final String OPERATOR = "operator";
 	private static final String LAMBDA = "lambda";
@@ -207,6 +203,16 @@ public class GnuDemanglerParser {
 		Pattern.compile(".*(\\{" + LAMBDA + "\\((.*)\\)(#\\d+)\\})");
 
 	/*
+	 * Sample:  {unnamed type#1}
+	 * 
+	 * Pattern: [optional text] brace unnamed type#digits brace
+	 * 
+	 * Parts:
+	 * 			-full text without leading characters (capture group 1)
+	 */
+	private static final Pattern UNNAMED_TYPE_PATTERN = Pattern.compile("(\\{unnamed type#\\d+})");
+
+	/*
 	 * Sample:  covariant return thunk to Foo::Bar::copy(Foo::CoolStructure*) const
 	 * 
 	 * Pattern: text for|to text
@@ -238,14 +244,6 @@ public class GnuDemanglerParser {
 	 */
 	private static final Pattern DECLTYPE_RETURN_TYPE_PATTERN =
 		Pattern.compile("decltype \\(.*\\)");
-
-	/**
-	 * Simple pattern to match any text that is trailed by digits
-	 * 
-	 * note: the '?' after the .*   this is there to allow the trailing digits to match as many as
-	 *       possible
-	 */
-	private static final Pattern ENDS_WITH_DIGITS_PATTERN = Pattern.compile("(.*?)\\d+");
 
 	private static Pattern createOverloadedOperatorNamePattern() {
 
@@ -301,8 +299,7 @@ public class GnuDemanglerParser {
 	 * @return the demangled object
 	 * @throws DemanglerParseException if there is an unexpected error parsing
 	 */
-	public DemangledObject parse(String mangled, String demangled)
-			throws DemanglerParseException {
+	public DemangledObject parse(String mangled, String demangled) throws DemanglerParseException {
 
 		this.mangledSource = mangled;
 		this.demangledSource = demangled;
@@ -317,14 +314,22 @@ public class GnuDemanglerParser {
 
 	private DemangledObjectBuilder getSpecializedBuilder(String demangled) {
 
-		DemangledObjectBuilder operatorHandler = getOperatorHandler(demangled);
-		if (operatorHandler != null) {
-			return operatorHandler;
-		}
-
+		//
+		// Note: we check for the 'special handlers' first, since they are more specific than 
+		//       the other handlers here.  Checking for the operator handler first can produce 
+		//       errors, since some 'special handler' strings actually contain 'operator' 
+		//       signatures.  In those cases, the operator handler will incorrectly match on the
+		//       operator text.   Since the 'special handlers' perform more specific checks, it is
+		//       safe to do those first.
+		//
 		DemangledObjectBuilder handler = getSpecialPrefixHandler(mangledSource, demangled);
 		if (handler != null) {
 			return handler;
+		}
+
+		DemangledObjectBuilder operatorHandler = getOperatorHandler(demangled);
+		if (operatorHandler != null) {
+			return operatorHandler;
 		}
 
 		return null;
@@ -390,7 +395,7 @@ public class GnuDemanglerParser {
 		LambdaName lambdaName = getLambdaName(demangled);
 		if (lambdaName != null) {
 			String uniqueName = lambdaName.getFullText();
-			String escapedLambda = removeInternalSpaces(uniqueName);
+			String escapedLambda = removeBadSpaces(uniqueName);
 			simpleName = simpleName.replace("{lambda", escapedLambda);
 			function = new DemangledLambda(mangledSource, demangled, null);
 			function.setSignature(lambdaName.getFullText());
@@ -484,12 +489,16 @@ public class GnuDemanglerParser {
 	}
 
 	/**
-	 * Removes spaces inside of templates and parentheses by either dropping the spaces or 
-	 * replacing them with an underscore when they are surrounded by word characters
+	 * Removes spaces from unwanted places.  For example, all spaces internal to templates and 
+	 * parameter lists will be removed.   Also, other special cases may be handled, such as when
+	 * the 'unnamed type' construct is found.
+	 * 
+	 * @param text the text to fix
+	 * @return the fixed text
 	 */
-	private String removeInternalSpaces(String name) {
-		CondensedString cs = new CondensedString(name);
-		return cs.getCondensedString();
+	private String removeBadSpaces(String text) {
+		CondensedString condensedString = new CondensedString(text);
+		return condensedString.getCondensedText();
 	}
 
 	/**
@@ -898,7 +907,6 @@ public class GnuDemanglerParser {
 	}
 
 	private void setNameAndNamespace(DemangledObject object, String name) {
-
 		SymbolPath path = new SymbolPath(name);
 		List<String> names = path.asList();
 
@@ -1011,7 +1019,7 @@ public class GnuDemanglerParser {
 		 	
 		 */
 
-		String nameString = removeInternalSpaces(demangled).trim();
+		String nameString = removeBadSpaces(demangled).trim();
 		DemangledVariable variable =
 			new DemangledVariable(mangledSource, demangledSource, (String) null);
 		setNameAndNamespace(variable, nameString);
@@ -1025,7 +1033,7 @@ public class GnuDemanglerParser {
 	 * and Namespace{C} will be returned.
 	 * 
 	 * <p>This method will also escape spaces separators inside of templates
-	 * (see {@link #removeInternalSpaces(String)}).
+	 * (see {@link #removeBadSpaces(String)}).
 	 * 
 	 * @param names the names to convert
 	 * @return the newly created type
@@ -1036,13 +1044,13 @@ public class GnuDemanglerParser {
 		}
 		int index = names.size() - 1;
 		String rawName = names.get(index);
-		String escapedName = removeInternalSpaces(rawName);
+		String escapedName = removeBadSpaces(rawName);
 		DemangledType myNamespace = new DemangledType(mangledSource, demangledSource, escapedName);
 
 		DemangledType namespace = myNamespace;
 		while (--index >= 0) {
 			rawName = names.get(index);
-			escapedName = removeInternalSpaces(rawName);
+			escapedName = removeBadSpaces(rawName);
 			DemangledType parentNamespace =
 				new DemangledType(mangledSource, demangledSource, escapedName);
 			namespace.setNamespace(parentNamespace);
@@ -1101,8 +1109,7 @@ public class GnuDemanglerParser {
 		@Override
 		public String toString() {
 			ToStringBuilder builder = new ToStringBuilder(this, ToStringStyle.JSON_STYLE);
-			return builder
-					.append("name", name)
+			return builder.append("name", name)
 					.append("prefix", prefix)
 					.append("type", type)
 					.append("demangled", demangled)
@@ -1171,11 +1178,10 @@ public class GnuDemanglerParser {
 
 		@Override
 		DemangledObject doBuild(Demangled namespace) {
-			DemangledString demangledString =
-				new DemangledString(mangledSource, demangledSource, "typeinfo-name", type,
-					-1/*unknown length*/, false);
+			DemangledString demangledString = new DemangledString(mangledSource, demangledSource,
+				"typeinfo-name", type, -1/*unknown length*/, false);
 			demangledString.setSpecialPrefix("typeinfo name for ");
-			String namespaceString = removeInternalSpaces(type);
+			String namespaceString = removeBadSpaces(type);
 			setNamespace(demangledString, namespaceString);
 			return demangledString;
 		}
@@ -1188,15 +1194,6 @@ public class GnuDemanglerParser {
 			this.demangled = demangled;
 			this.prefix = prefix;
 			this.type = type;
-
-			Matcher matcher = ENDS_WITH_DIGITS_PATTERN.matcher(demangled);
-			if (matcher.matches()) {
-				// ends with a number, strip it off
-				int oldLength = demangled.length();
-				this.demangled = matcher.group(1);
-				int delta = oldLength - this.demangled.length();
-				this.type = type.substring(0, type.length() - delta);
-			}
 
 			/*
 			 Samples:
@@ -1252,31 +1249,36 @@ public class GnuDemanglerParser {
 			//
 			String operatorChars = matcher.group(2);
 			String templates = matcher.group(3);
-			templates = templates == null ? "" : templates;
+			int start = matcher.start(2); // operator chars start
+			int end = matcher.end(3); // templates end
+
+			if (templates == null) {
+				templates = "";
+				end = matcher.end(2); // no templates; end of the operator chars
+			}
 
 			//
 			// The 'operator' functions have symbols that confuse our default function parsing.  
 			// Specifically, operators that use shift symbols (<, <<, >, >>) will cause our 
-			// template parsing to fail.  To default the failure, we will install a temporary 
+			// template parsing to fail.  To defeat the failure, we will install a temporary 
 			// function name here and then restore it after parsing is finished.
 			//
-			String originalPrefix = OPERATOR + operatorChars + templates;
+			String rawPrefix = OPERATOR + demangled.substring(start, end);
 			String placeholder = "TEMPNAMEPLACEHOLDERVALUE";
-			String tempName = demangled.replace(originalPrefix, placeholder);
+			String tempName = demangled.replace(rawPrefix, placeholder);
 
 			DemangledFunction function = (DemangledFunction) parseFunctionOrVariable(tempName);
 			function.setOverloadedOperator(true);
-			function.setName(originalPrefix);
 
-			if (!StringUtils.isBlank(templates)) {
-				String escapedPrefix = removeInternalSpaces(originalPrefix);
-				String escapedTemplates = removeInternalSpaces(templates);
-				int templateIndex = escapedPrefix.indexOf(escapedTemplates);
-				String operatorName = escapedPrefix.substring(0, templateIndex);
+			String simpleName = OPERATOR + operatorChars;
+			if (StringUtils.isBlank(templates)) {
+				function.setName(simpleName);
+			}
+			else {
+				String escapedTemplates = removeBadSpaces(templates);
 				DemangledTemplate demangledTemplate = parseTemplate(escapedTemplates);
-
 				function.setTemplate(demangledTemplate);
-				function.setName(operatorName);
+				function.setName(simpleName);
 			}
 
 			return function;
@@ -1437,8 +1439,7 @@ public class GnuDemanglerParser {
 		@Override
 		public String toString() {
 			ToStringBuilder builder = new ToStringBuilder(this, ToStringStyle.JSON_STYLE);
-			return builder
-					.append("text", text)
+			return builder.append("text", text)
 					.append("paramStart", paramStart)
 					.append("paramEnd", paramEnd)
 					.toString();
@@ -1499,8 +1500,7 @@ public class GnuDemanglerParser {
 		@Override
 		public String toString() {
 			ToStringBuilder builder = new ToStringBuilder(this, ToStringStyle.JSON_STYLE);
-			return builder
-					.append("fullText", fullText)
+			return builder.append("fullText", fullText)
 					.append("params", params)
 					.append("trailing", trailing)
 					.toString();
@@ -1516,10 +1516,7 @@ public class GnuDemanglerParser {
 
 		private boolean isFunction;
 
-		private String rawReturnType;
 		private String returnType;
-
-		private String rawName;
 		private String name;
 
 		private List<DemangledDataType> parameters;
@@ -1543,16 +1540,13 @@ public class GnuDemanglerParser {
 			String rawPrefix = signatureString.substring(0, prefixEndPos).trim();
 
 			CondensedString prefixString = new CondensedString(rawPrefix);
-			String prefix = prefixString.getCondensedString();
+			String prefix = prefixString.getCondensedText();
 			int nameStart = Math.max(0, prefix.lastIndexOf(' '));
-
-			rawName = prefixString.substringOriginal(nameStart, prefix.length());
-			name = removeInternalSpaces(rawName);
+			name = prefix.substring(nameStart, prefix.length()).trim();
 
 			// check for return type
 			if (nameStart > 0) {
-				rawReturnType = prefixString.substringOriginal(0, nameStart);
-				returnType = removeInternalSpaces(rawReturnType);
+				returnType = prefix.substring(0, nameStart);
 			}
 		}
 
@@ -1579,21 +1573,27 @@ public class GnuDemanglerParser {
 	}
 
 	/**
-	 * An object that will change the input string (such as to remove spaces) while maintaining
-	 * the ability to translate from the new string back to the old string
+	 * A class to handle whitespace manipulation within demangled strings.  This class will
+	 * remove bad spaces, which is all whitespace that is not needed to separate distinct objects
+	 * inside of a demangled string.
+	 *
+	 * <p>Generally, this class removes spaces within templates and parameter lists.   It will 
+	 * remove some spaces, while converting some to underscores.   
 	 */
 	private class CondensedString {
 
-		private String originalString;
-		private String condensedString;
+		@SuppressWarnings("unused") // used by toString()
+		private String sourceText;
+		private String condensedText;
 		private List<Part> parts = new ArrayList<>();
 
 		CondensedString(String input) {
-			this.originalString = input;
-			this.condensedString = createFixedString(input);
+			String fixed = fixupUnnamedTypes(input);
+			this.sourceText = fixed;
+			this.condensedText = convertTemplateAndParameterSpaces(fixed);
 		}
 
-		private String createFixedString(String name) {
+		private String convertTemplateAndParameterSpaces(String name) {
 
 			int depth = 0;
 			char last = NULL_CHAR;
@@ -1625,10 +1625,7 @@ public class GnuDemanglerParser {
 				last = ch;
 			}
 
-			return parts.stream()
-					.map(p -> p.condensed)
-					.collect(Collectors.joining())
-					.trim();
+			return parts.stream().map(p -> p.condensed).collect(Collectors.joining()).trim();
 		}
 
 		private boolean isSurroundedByCharacters(char last, char next) {
@@ -1638,46 +1635,25 @@ public class GnuDemanglerParser {
 			return Character.isLetterOrDigit(last) && Character.isLetterOrDigit(next);
 		}
 
+		private String fixupUnnamedTypes(String demangled) {
+			String fixed = demangled;
+			Matcher matcher = UNNAMED_TYPE_PATTERN.matcher(demangled);
+			while (matcher.find()) {
+				String text = matcher.group(1);
+				String noSpace = text.replaceFirst("\\s", "_");
+				fixed = fixed.replace(text, noSpace);
+			}
+
+			return fixed;
+		}
+
 		/**
 		 * Returns the original string value that has been 'condensed', which means to remove 
 		 * internal spaces
 		 * @return the condensed string
 		 */
-		String getCondensedString() {
-			return condensedString;
-		}
-
-		/**
-		 * Uses the given start and end <b>from the 'condensed' string</b> to create a substring of
-		 * the original string
-		 * @param condensedStart the start in the condensed string
-		 * @param condensedEnd the end in the condensed string
-		 * @return the substring from the original string
-		 */
-		String substringOriginal(int condensedStart, int condensedEnd) {
-
-			int start = condensedToOriginal(condensedStart);
-			int end = condensedToOriginal(condensedEnd);
-			return originalString.substring(start, end);
-		}
-
-		private int condensedToOriginal(int index) {
-
-			int next = index + 1;
-			int n = 0;
-			for (int i = 0; i < parts.size(); i++) {
-				Part p = parts.get(i);
-				n += p.condensed.length();
-				if (n == next) {
-					return i;
-				}
-			}
-
-			if (n == index) {
-				return parts.size(); // user asked for length of the 'condensed' string
-			}
-
-			throw new IndexOutOfBoundsException("Index not in condensed string: " + index);
+		String getCondensedText() {
+			return condensedText;
 		}
 
 		@Override

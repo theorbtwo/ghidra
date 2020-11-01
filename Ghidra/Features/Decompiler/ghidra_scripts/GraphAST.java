@@ -69,7 +69,9 @@ public class GraphAST extends GhidraScript {
 //        graphDisplay.defineVertexAttribute(CODE_ATTRIBUTE); //
 //        graphDisplay.defineVertexAttribute(SYMBOLS_ATTRIBUTE);
 //        graphDisplay.defineEdgeAttribute(EDGE_TYPE_ATTRIBUTE);
-		graphDisplay.setGraph(graph, "Data-flow AST", false, monitor);
+		String description = "AST Data Flow Graph For " + func.getName();
+
+		graphDisplay.setGraph(graph, description, false, monitor);
 
 		// Install a handler so the selection/location will map
 		graphDisplay.setGraphDisplayListener(
@@ -169,7 +171,8 @@ public class GraphAST extends GhidraScript {
 		return vert;
 	}
 
-	protected AttributedVertex getVarnodeVertex(Map<Integer, AttributedVertex> vertices, VarnodeAST vn) {
+	protected AttributedVertex getVarnodeVertex(Map<Integer, AttributedVertex> vertices,
+			VarnodeAST vn) {
 		AttributedVertex res;
 		res = vertices.get(vn.getUniqueId());
 		if (res == null) {
@@ -231,16 +234,15 @@ public class GraphAST extends GhidraScript {
 		}
 
 		@Override
-		protected List<String> getVertices(AddressSetView selection) {
-			List<String> ids = new ArrayList<String>();
-			return ids;
+		protected Set<AttributedVertex> getVertices(AddressSetView selection) {
+			return Collections.emptySet();
 		}
 
 		@Override
-		protected AddressSet getAddressSetForVertices(List<String> vertexIds) {
+		protected AddressSet getAddresses(Set<AttributedVertex> vertices) {
 			AddressSet set = new AddressSet();
-			for (String id : vertexIds) {
-				Address address = getAddressForVertexId(id);
+			for (AttributedVertex vertex : vertices) {
+				Address address = getAddress(vertex);
 				if (address != null) {
 					set.add(address);
 				}
@@ -249,7 +251,11 @@ public class GraphAST extends GhidraScript {
 		}
 
 		@Override
-		protected Address getAddressForVertexId(String vertexId) {
+		protected Address getAddress(AttributedVertex vertex) {
+			if (vertex == null) {
+				return null;
+			}
+			String vertexId = vertex.getId();
 			int firstcolon = vertexId.indexOf(':');
 			if (firstcolon == -1) {
 				return null;
@@ -258,6 +264,11 @@ public class GraphAST extends GhidraScript {
 			int firstSpace = vertexId.indexOf(' ');
 			String addrString = vertexId.substring(0, firstSpace);
 			return getAddress(addrString);
+		}
+
+		@Override
+		public GraphDisplayListener cloneWith(GraphDisplay graphDisplay) {
+			return new ASTGraphDisplayListener(tool, graphDisplay, highfunc, currentProgram);
 		}
 	}
 }
