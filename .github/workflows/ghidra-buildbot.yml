@@ -50,7 +50,7 @@ jobs:
   # swy: 64-bit windows build --
   build-win:
     name: Windows
-    runs-on: self-hosted
+    runs-on: windows-latest
     env:
       # swy: store the buildbot caches in the repo folder; easier to restore
       GRADLE_USER_HOME: ${{github.workspace}}/.gradle-user
