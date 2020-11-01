@@ -2,55 +2,55 @@ name: Ghidra
 on: push
 jobs:
   # swy: 64-bit linux build --
-  build-lnx:
-    name: Linux
-    runs-on: ubuntu-latest
-    env:
-      # swy: store the buildbot caches in the repo folder; easier to restore
-      GRADLE_USER_HOME: ${{github.workspace}}/.gradle-user
-    steps:
-    - uses: actions/checkout@v2
-    - name: Setup Java JDK
-      uses: actions/setup-java@v1.4.0
-      with:
-        java-version: 11
-
-    - name: Install dependencies
-      run: |
-        java -version
-        sudo add-apt-repository ppa:cwchien/gradle
-        sudo apt-get update
-        sudo apt install gradle flex bison
-    - name: Restore the cached downloads for things Ghidra depends on
-      uses: actions/cache@v2
-      with:
-        path: build/downloads
-        key: ghidra
-
-    - name: Restore the Gradle cache
-      uses: actions/cache@v2
-      with:
-        path: |
-          .gradle-user/caches
-          .gradle-user/wrapper
-        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*') }}
-        restore-keys: |
-          ${{ runner.os }}-gradle-
-    - name: Build Ghidra
-      run: |
-        gradle --init-script gradle/support/fetchDependencies.gradle init --parallel
-        gradle buildGhidra --parallel
-        
-    - name: Archive production artifacts
-      uses: actions/upload-artifact@v2
-      with:
-        name: Linux
-        path: build/dist/
+  #build-lnx:
+  #  name: Linux
+  #  runs-on: ubuntu-latest
+  #  env:
+  #    # swy: store the buildbot caches in the repo folder; easier to restore
+  #    GRADLE_USER_HOME: ${{github.workspace}}/.gradle-user
+  #  steps:
+  #  - uses: actions/checkout@v2
+  #  - name: Setup Java JDK
+  #    uses: actions/setup-java@v1.4.0
+  #    with:
+  #      java-version: 11
+  #
+  #  - name: Install dependencies
+  #    run: |
+  #      java -version
+  #      sudo add-apt-repository ppa:cwchien/gradle
+  #      sudo apt-get update
+  #      sudo apt install gradle flex bison
+  #  - name: Restore the cached downloads for things Ghidra depends on
+  #    uses: actions/cache@v2
+  #    with:
+  #      path: build/downloads
+  #      key: ghidra
+  #
+  #  - name: Restore the Gradle cache
+  #    uses: actions/cache@v2
+  #    with:
+  #      path: |
+  #        .gradle-user/caches
+  #        .gradle-user/wrapper
+  #      key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*') }}
+  #      restore-keys: |
+  #        ${{ runner.os }}-gradle-
+  #  - name: Build Ghidra
+  #    run: |
+  #      gradle --init-script gradle/support/fetchDependencies.gradle init --parallel
+  #      gradle buildGhidra --parallel
+  #      
+  #  - name: Archive production artifacts
+  #    uses: actions/upload-artifact@v2
+  #    with:
+  #      name: Linux
+  #      path: build/dist/
 
   # swy: 64-bit windows build --
   build-win:
     name: Windows
-    runs-on: windows-latest
+    runs-on: self-hosted
     env:
       # swy: store the buildbot caches in the repo folder; easier to restore
       GRADLE_USER_HOME: ${{github.workspace}}/.gradle-user
@@ -100,45 +100,45 @@ jobs:
         path: build/dist/
  
   # swy: 64-bit macos build --
-  build-mac:
-    name: macOS
-    runs-on: macos-latest
-    env:
-      # swy: store the buildbot caches in the repo folder; easier to restore
-      GRADLE_USER_HOME: ${{github.workspace}}/.gradle-user
-    steps:
-    - uses: actions/checkout@v2
-    - name: Setup Java JDK
-      uses: actions/setup-java@v1.4.0
-      with:
-        java-version: 11
-
-    - name: Install dependencies
-      run: |
-        java -version
-        brew install gradle flex bison
-    - name: Restore the cached downloads for things Ghidra depends on
-      uses: actions/cache@v2
-      with:
-        path: build/downloads
-        key: ghidra
-
-    - name: Restore the Gradle cache
-      uses: actions/cache@v2
-      with:
-        path: |
-          .gradle-user/caches
-          .gradle-user/wrapper
-        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*') }}
-        restore-keys: |
-          ${{ runner.os }}-gradle-
-    - name: Build Ghidra
-      run: |
-        gradle --init-script gradle/support/fetchDependencies.gradle init --parallel
-        gradle buildGhidra --parallel
-        
-    - name: Archive production artifacts
-      uses: actions/upload-artifact@v2
-      with:
-        name: macOS
-        path: build/dist/
+  #build-mac:
+  #  name: macOS
+  #  runs-on: macos-latest
+  #  env:
+  #    # swy: store the buildbot caches in the repo folder; easier to restore
+  #    GRADLE_USER_HOME: ${{github.workspace}}/.gradle-user
+  #  steps:
+  #  - uses: actions/checkout@v2
+  #  - name: Setup Java JDK
+  #    uses: actions/setup-java@v1.4.0
+  #    with:
+  #      java-version: 11
+  #
+  #  - name: Install dependencies
+  #    run: |
+  #      java -version
+  #      brew install gradle flex bison
+  #  - name: Restore the cached downloads for things Ghidra depends on
+  #    uses: actions/cache@v2
+  #    with:
+  #      path: build/downloads
+  #      key: ghidra
+  #
+  #  - name: Restore the Gradle cache
+  #    uses: actions/cache@v2
+  #    with:
+  #      path: |
+  #        .gradle-user/caches
+  #        .gradle-user/wrapper
+  #      key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*') }}
+  #      restore-keys: |
+  #        ${{ runner.os }}-gradle-
+  #  - name: Build Ghidra
+  #    run: |
+  #      gradle --init-script gradle/support/fetchDependencies.gradle init --parallel
+  #      gradle buildGhidra --parallel
+  #      
+  #  - name: Archive production artifacts
+  #    uses: actions/upload-artifact@v2
+  #    with:
+  #      name: macOS
+  #      path: build/dist/
