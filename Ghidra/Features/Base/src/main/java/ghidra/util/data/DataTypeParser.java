@@ -253,7 +253,7 @@ public class DataTypeParser {
 			if (terminalModifier) {
 				throw new InvalidDataTypeException("Invalid data type modifier");
 			}
-			if (piece.startsWith("*")) {
+			if (piece.contains("*")) {
 				modifiers.add(new PointerSpecPiece(piece));
 				arraySequenceStartIndex = -1;
 			}
@@ -283,8 +283,9 @@ public class DataTypeParser {
 		try {
 			for (DtPiece modifier : modifiers) {
 				if (modifier instanceof PointerSpecPiece) {
+					int shiftOffset = ((PointerSpecPiece) modifier).getShiftOffset();
 					int pointerSize = ((PointerSpecPiece) modifier).getPointerSize();
-					dt = new PointerDataType(dt, pointerSize, destinationDataTypeManager);
+					dt = new PointerDataType(dt, shiftOffset, pointerSize, destinationDataTypeManager);
 					elementLength = dt.getLength();
 				}
 				else if (modifier instanceof ElementSizeSpecPiece) {
@@ -469,10 +470,14 @@ public class DataTypeParser {
 		}
 		List<String> list = new ArrayList<>();
 		int startIndex = 0;
-		int nextIndex = 1;
+		int nextIndex = 0;
 		while (nextIndex < dataTypeModifiers.length()) {
 			char c = dataTypeModifiers.charAt(nextIndex);
-			if (c == '*' || c == '[' || c == ':' || c == '{') {
+			if (c == '*') {
+				list.add(dataTypeModifiers.substring(startIndex, nextIndex));
+				startIndex = nextIndex;
+			}
+			if (c == '[' || c == ':' || c == '{') {
 				list.add(dataTypeModifiers.substring(startIndex, nextIndex));
 				startIndex = nextIndex;
 			}
@@ -483,7 +488,7 @@ public class DataTypeParser {
 		list.toArray(pieces);
 		return pieces;
 	}
-
+ 
 	private DataType createArrayDataType(DataType baseDataType, int elementLength, int elementCount)
 			throws InvalidDataTypeException {
 		DataType dt = baseDataType;
@@ -561,28 +566,75 @@ public class DataTypeParser {
 	}
 
 	private static class PointerSpecPiece implements DtPiece {
+		int shiftOffset = 0;
 		int pointerSize = -1;
-
+		
 		PointerSpecPiece(String piece) throws InvalidDataTypeException {
-			if (!piece.startsWith("*")) {
+			if (piece.charAt(0) != '*') {
 				throw new InvalidDataTypeException("invalid pointer specification: " + piece);
 			}
-			if (piece.length() == 1) {
-				return;
+			
+			// Parse the pointer specification
+			// It's structured in a following way
+			//*(pointer size) (+/-offset)
+			// Examples:
+			//	*
+			//	*+0x4
+			//	*8
+			//	*4-16
+
+			
+			int shiftIndex;
+			if (piece.contains("+")) {
+				shiftIndex = piece.indexOf("+");
+			} else if (piece.contains("-")) {
+				shiftIndex = piece.indexOf("-");
+			} else {
+				shiftIndex = piece.length();
 			}
-			try {
-				pointerSize = Integer.parseInt(piece.substring(1));
+			
+			// Parse pointer length
+			if (shiftIndex != 1) {
+				try {
+					pointerSize = Integer.parseInt(piece.substring(1, shiftIndex));
+				}
+				catch (NumberFormatException e) {
+					throw new InvalidDataTypeException("invalid pointer specification: " + piece);
+				}
+				int mod = pointerSize % 8;
+				pointerSize = pointerSize / 8;
+				if (mod != 0 || pointerSize <= 0 || pointerSize > 8) {
+					throw new InvalidDataTypeException("invalid pointer size: " + piece);
+				}
+				
 			}
-			catch (NumberFormatException e) {
-				throw new InvalidDataTypeException("invalid pointer specification: " + piece);
-			}
-			int mod = pointerSize % 8;
-			pointerSize = pointerSize / 8;
-			if (mod != 0 || pointerSize <= 0 || pointerSize > 8) {
-				throw new InvalidDataTypeException("invalid pointer size: " + piece);
+			
+			// Parse shift offset
+			if (shiftIndex != piece.length()) {
+				switch(piece.charAt(shiftIndex)) {
+				case '+': 
+					shiftOffset = 1;
+					break;
+				case '-':
+					shiftOffset = -1;
+					break;
+				default:
+					throw new InvalidDataTypeException("invalid pointer specification: " + piece);
+				}
+				
+				try {
+					shiftOffset *= Integer.decode(piece.substring(shiftIndex + 1, piece.length()));
+				}
+				catch (NumberFormatException e) {
+					throw new InvalidDataTypeException("invalid pointer specification: " + piece);
+				}
 			}
 		}
-
+		
+		int getShiftOffset() {
+			return shiftOffset;
+		}
+		
 		int getPointerSize() {
 			return pointerSize;
 		}

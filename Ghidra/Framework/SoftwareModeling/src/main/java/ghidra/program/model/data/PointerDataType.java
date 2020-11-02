@@ -42,6 +42,7 @@ public class PointerDataType extends BuiltIn implements Pointer {
 	public static final String POINTER_LOOP_LABEL_PREFIX = "PTR_LOOP";
 
 	protected DataType referencedDataType;
+	protected int shiftOffset;
 	protected int length;
 
 	private boolean deleted = false;
@@ -127,14 +128,31 @@ public class PointerDataType extends BuiltIn implements Pointer {
 	 *                           organization will be used
 	 */
 	public PointerDataType(DataType referencedDataType, int length, DataTypeManager dtm) {
+		this(referencedDataType, 0, length, dtm);
+	}
+	
+	/**
+	 * Construct a pointer of a specified length to a referencedDataType. Note: It
+	 * is preferred to use default sized pointers when possible (i.e., length=-1,
+	 * see {@link #PointerDataType(DataType, DataTypeManager)}) instead of
+	 * explicitly specifying the pointer length value.
+	 * 
+	 * @param referencedDataType data type this pointer points to
+	 * @param length             pointer length (-1 will result in dynamically-sized
+	 *                           pointer)
+	 * @param dtm                associated data type manager whose data
+	 *                           organization will be used
+	 */
+	public PointerDataType(DataType referencedDataType,int shiftOffset, int length, DataTypeManager dtm) {
 		super(referencedDataType != null ? referencedDataType.getCategoryPath() : null,
-			constructUniqueName(referencedDataType, length), dtm);
+			constructUniqueName(referencedDataType, shiftOffset, length), dtm);
 		if (referencedDataType instanceof BitFieldDataType) {
 			throw new IllegalArgumentException(
 				"Pointer reference data-type may not be a bitfield: " +
 					referencedDataType.getName());
 		}
 		this.length = length <= 0 ? -1 : length;
+		this.shiftOffset = shiftOffset;
 		this.referencedDataType = referencedDataType;
 		if (referencedDataType != null) {
 			referencedDataType.addParent(this);
@@ -147,7 +165,7 @@ public class PointerDataType extends BuiltIn implements Pointer {
 			return this;
 		}
 		// don't clone referenced data-type to avoid potential circular reference
-		return new PointerDataType(referencedDataType, length, dtm);
+		return new PointerDataType(referencedDataType, shiftOffset, length, dtm);
 	}
 
 	@Override
@@ -155,6 +173,11 @@ public class PointerDataType extends BuiltIn implements Pointer {
 		return referencedDataType;
 	}
 
+	@Override
+	public int getShiftOffset() {
+		return shiftOffset;
+	}
+	
 	@Override
 	public boolean isDynamicallySized() {
 		return length <= 0;
@@ -274,6 +297,14 @@ public class PointerDataType extends BuiltIn implements Pointer {
 			else {
 				displayName = dt.getDisplayName() + " *";
 			}
+			long shiftOffset = getShiftOffset();
+			String shiftSuffix = "";
+			if (shiftOffset < 0) {
+				shiftSuffix = "-0x" + Long.toHexString(-shiftOffset);
+			} else if (shiftOffset > 0) {
+				shiftSuffix = "+0x" + Long.toHexString(shiftOffset);
+			}
+			displayName += shiftSuffix;
 		}
 		return displayName;
 	}
@@ -281,7 +312,7 @@ public class PointerDataType extends BuiltIn implements Pointer {
 	/**
 	 * Return a unique name for this pointer
 	 */
-	private static String constructUniqueName(DataType referencedDataType, int ptrLength) {
+	private static String constructUniqueName(DataType referencedDataType, int shiftOffset, int ptrLength) {
 		if (referencedDataType == null) {
 			String s = POINTER_NAME;
 			if (ptrLength > 0) {
@@ -293,6 +324,13 @@ public class PointerDataType extends BuiltIn implements Pointer {
 		if (ptrLength > 0) {
 			s += Integer.toString(8 * ptrLength);
 		}
+		String shiftSuffix = "";
+		if (shiftOffset < 0) {
+			shiftSuffix = "-0x" + Integer.toHexString(-shiftOffset);
+		} else if (shiftOffset > 0) {
+			shiftSuffix = "+0x" + Integer.toHexString(shiftOffset);
+		}
+		s += shiftSuffix;
 		return s;
 	}
 
@@ -314,6 +352,17 @@ public class PointerDataType extends BuiltIn implements Pointer {
 				sbuf.append(getDataType().getDisplayName());
 			}
 		}
+		if (shiftOffset != 0) {
+			sbuf.append(" shifted by ");
+			if (shiftOffset < 0) {
+				sbuf.append("-0x");
+				sbuf.append(Long.toHexString(-shiftOffset));
+			} else if (shiftOffset > 0) {
+				sbuf.append("0x");
+				sbuf.append(Long.toHexString(shiftOffset));
+				
+			}
+		}
 		return sbuf.toString();
 	}
 
@@ -322,7 +371,14 @@ public class PointerDataType extends BuiltIn implements Pointer {
 		if (referencedDataType == null || referencedDataType == DataType.DEFAULT) {
 			return "addr";
 		}
-		return referencedDataType.getMnemonic(settings) + " *";
+		String shiftSuffix = "";
+		if (shiftOffset < 0) {
+			shiftSuffix = "-0x" + Long.toHexString(-shiftOffset);
+		} else if (shiftOffset > 0) {
+			shiftSuffix = "+0x" + Long.toHexString(shiftOffset);
+			
+	}
+		return referencedDataType.getMnemonic(settings) + " *" + shiftSuffix;
 	}
 
 	@Override
@@ -330,7 +386,11 @@ public class PointerDataType extends BuiltIn implements Pointer {
 
 		// TODO: Which address space should pointer refer to ??
 
-		return getAddressValue(buf, getLength(), buf.getAddress().getAddressSpace());
+		try {
+			return getAddressValue(buf, getLength(), buf.getAddress().getAddressSpace()).subtractNoWrap(shiftOffset);
+		} catch(AddressOverflowException e) {
+			return null;
+		}
 	}
 
 	@Override
@@ -472,6 +532,11 @@ public class PointerDataType extends BuiltIn implements Pointer {
 			return false;
 		}
 
+		// if we have different shift offsets, we're not equivalent
+		if (shiftOffset != p.getShiftOffset()) {
+			return false;
+		}
+		
 		// if they contain datatypes that have same ids, then we are essentially
 		// equivalent.
 		if (DataTypeUtilities.isSameDataType(referencedDataType, otherDataType)) {
@@ -526,7 +591,7 @@ public class PointerDataType extends BuiltIn implements Pointer {
 			referencedDataType.addParent(this);
 			displayName = null;
 			String oldName = name;
-			name = constructUniqueName(referencedDataType, length);
+			name = constructUniqueName(referencedDataType, shiftOffset, length);
 			notifyNameChanged(oldName);
 		}
 	}
@@ -535,7 +600,7 @@ public class PointerDataType extends BuiltIn implements Pointer {
 	public void dataTypeNameChanged(DataType dt, String oldName) {
 		if (referencedDataType == dt) {
 			displayName = null;
-			name = constructUniqueName(referencedDataType, length);
+			name = constructUniqueName(referencedDataType, shiftOffset, length);
 			notifyNameChanged(oldName);
 		}
 	}
@@ -601,7 +666,7 @@ public class PointerDataType extends BuiltIn implements Pointer {
 	public String getName() {
 		if (referencedDataType != null) {
 			// referencedDataType may have had name set, so re-create this pointer name.
-			name = constructUniqueName(referencedDataType, length);
+			name = constructUniqueName(referencedDataType, shiftOffset, length);
 		}
 		return super.getName();
 	}
