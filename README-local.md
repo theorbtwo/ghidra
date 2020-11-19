@@ -35,5 +35,12 @@ Autodetect the `___chkstk_ms` symbol #1889
 #573 Add shifted pointers #2189
  https://github.com/Popax21/ghidra
  git pull Popax21 master
-
- 
+Added __stack_chk_fail to ElfFunctionsThatDoNotReturn #2332
+ https://github.com/astrelsky/ghidra/tree/StackCheck
+ git pull astrelsky StackCheck
+Better choices of which branch is which in if () {} else {}
+ https://github.com/cmorin6/ghidra/tree/ruleBlockIfNoExit-select-best-noexit
+ git pull cmorin6 ruleBlockIfNoExit-select-best-noexit
+Merge if () {} else if {}
+ https://github.com/cmorin6/ghidra/tree/decompiler-merge-else-if
+ git pull cmorin6 decompiler-merge-else-if
