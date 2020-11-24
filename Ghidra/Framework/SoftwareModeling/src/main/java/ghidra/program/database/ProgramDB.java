@@ -2333,6 +2333,13 @@ public class ProgramDB extends DomainObjectAdapterDB implements Program, ChangeM
 		super.close();
 		intRangePropertyMap.clear();
 		addrSetPropertyMap.clear();
+		for (ManagerDB manager : managers) {
+			// have to check for null in case we are closing after a failed open. This happens during
+			// testing where we first try to open a program and if it fails, we upgrade and re-open.
+			if (manager != null) {
+				manager.dispose();
+			}
+		}
 	}
 
 	@Override
