@@ -44,3 +44,6 @@ Better choices of which branch is which in if () {} else {}
 Merge if () {} else if {}
  https://github.com/cmorin6/ghidra/tree/decompiler-merge-else-if
  git pull cmorin6 decompiler-merge-else-if
+Fix signed/unsigned confusion in equates
+ https://github.com/theorbtwo/ghidra/compare/master...snemes:fix-equate-signedness
+ git pull snemes fix-equate-signedness
