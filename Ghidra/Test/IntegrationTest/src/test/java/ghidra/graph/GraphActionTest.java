@@ -24,6 +24,7 @@ import org.junit.*;
 import docking.ComponentProvider;
 import docking.action.DockingActionIf;
 import docking.widgets.EventTrigger;
+import docking.widgets.dialogs.MultiLineInputDialog;
 import ghidra.app.plugin.core.graph.GraphDisplayBrokerPlugin;
 import ghidra.app.services.GraphDisplayBroker;
 import ghidra.framework.plugintool.PluginTool;
@@ -415,7 +416,9 @@ public class GraphActionTest extends AbstractGhidraHeadedIntegrationTest {
 		DockingActionIf action = getAction(tool, "Collapse Selected");
 		GraphActionContext context =
 			new GraphActionContext(graphComponentProvider, graph, null, null);
-		performAction(action, context, true);
+		performAction(action, context, false);
+		MultiLineInputDialog dialog = waitForDialogComponent(MultiLineInputDialog.class);
+		pressButtonByText(dialog, "OK", true);
 	}
 
 	private void expand() {
@@ -495,6 +498,11 @@ public class GraphActionTest extends AbstractGhidraHeadedIntegrationTest {
 		@Override
 		public GraphDisplayListener cloneWith(GraphDisplay graphDisplay) {
 			return new TestGraphDisplayListener("clone");
+		}
+
+		@Override
+		public void dispose() {
+			// do nothing
 		}
 
 	}

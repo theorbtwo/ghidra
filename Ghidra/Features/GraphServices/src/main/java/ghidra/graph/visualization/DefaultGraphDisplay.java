@@ -58,6 +58,7 @@ import docking.action.ToggleDockingAction;
 import docking.action.builder.*;
 import docking.menu.ActionState;
 import docking.widgets.EventTrigger;
+import docking.widgets.OptionDialog;
 import generic.util.WindowUtilities;
 import ghidra.framework.plugintool.PluginTool;
 import ghidra.graph.AttributeFilters;
@@ -193,6 +194,7 @@ public class DefaultGraphDisplay implements GraphDisplay {
 				Dimension sd = satelliteViewer.getSize();
 				java.awt.Point p = new java.awt.Point(vvd.width - sd.width, vvd.height - sd.height);
 				satelliteViewer.getComponent().setBounds(p.x, p.y, sd.width, sd.height);
+				satelliteViewer.scaleToLayout();
 			}
 		});
 
@@ -304,7 +306,7 @@ public class DefaultGraphDisplay implements GraphDisplay {
 		new ActionBuilder("Reset View", ACTION_OWNER)
 				.description("Fit Graph to Window")
 				.toolBarIcon(DefaultDisplayGraphIcons.FIT_TO_WINDOW)
-				.onAction(context -> viewer.scaleToLayout())
+				.onAction(context -> centerAndScale())
 				.buildAndInstallLocal(componentProvider);
 
 		// create a button to show the view magnify lens
@@ -429,7 +431,7 @@ public class DefaultGraphDisplay implements GraphDisplay {
 				.popupMenuGroup("z", "5")
 				.keyBinding("escape")
 				.enabledWhen(c -> hasSelection())
-				.onAction(c -> clearSelection())
+				.onAction(c -> clearSelection(true))
 				.buildAndInstallLocal(componentProvider);
 
 		new ActionBuilder("Create Subgraph", ACTION_OWNER)
@@ -471,9 +473,18 @@ public class DefaultGraphDisplay implements GraphDisplay {
 	private void groupSelectedVertices() {
 		AttributedVertex vertex = graphCollapser.groupSelectedVertices();
 		if (vertex != null) {
+			askToNameGroupVertex(vertex);
 			focusedVertex = vertex;
 			scrollToSelected(vertex);
 		}
+	}
+
+	private void askToNameGroupVertex(AttributedVertex vertex) {
+		String name = vertex.getName();
+		String userName = OptionDialog.showInputMultilineDialog(null, "Enter Group Vertex Text",
+			"Text", name);
+
+		updateVertexName(vertex, userName != null ? userName : name);
 	}
 
 	/**
@@ -488,10 +499,9 @@ public class DefaultGraphDisplay implements GraphDisplay {
 		}
 	}
 
-
-	private void clearSelection() {
-		viewer.getSelectedVertexState().clear();
-		viewer.getSelectedEdgeState().clear();
+	private void clearSelection(boolean fireEvents) {
+		viewer.getSelectedVertexState().clear(fireEvents);
+		viewer.getSelectedEdgeState().clear(fireEvents);
 	}
 
 	private boolean hasSelection() {
@@ -632,6 +642,7 @@ public class DefaultGraphDisplay implements GraphDisplay {
 		graphDisplayProvider.setDefaultSatelliteState(selected);
 		if (selected) {
 			viewer.getComponent().add(satelliteViewer.getComponent());
+			satelliteViewer.scaleToLayout();
 		}
 		else {
 			viewer.getComponent().remove(satelliteViewer.getComponent());
@@ -655,6 +666,9 @@ public class DefaultGraphDisplay implements GraphDisplay {
 		satellite.getRenderContext().setVertexFillPaintFunction(Colors::getColor);
 		satellite.scaleToLayout();
 		satellite.getRenderContext().setVertexLabelFunction(n -> null);
+		// always get the current predicate from the main view and test with it,
+		satellite.getRenderContext()
+				.setVertexIncludePredicate(v -> viewer.getRenderContext().getVertexIncludePredicate().test(v));
 		satellite.getComponent().setBorder(BorderFactory.createEtchedBorder());
 		parentViewer.getComponent().addComponentListener(new ComponentAdapter() {
 			@Override
@@ -805,6 +819,8 @@ public class DefaultGraphDisplay implements GraphDisplay {
 	 * @param attributedGraph the {@link AttributedGraph} to visualize
 	 */
 	private void doSetGraphData(AttributedGraph attributedGraph) {
+		clearSelection(false);
+		focusedVertex = null;
 		graph = attributedGraph;
 
 		layoutTransitionManager.setEdgeComparator(new EdgeComparator(graph, "EdgeType",
@@ -818,6 +834,7 @@ public class DefaultGraphDisplay implements GraphDisplay {
 			configureFilters();
 			LayoutAlgorithm<AttributedVertex> initialLayoutAlgorithm =
 				layoutTransitionManager.getInitialLayoutAlgorithm();
+			initialLayoutAlgorithm.setAfter(() -> centerAndScale());
 			viewer.getVisualizationModel().setLayoutAlgorithm(initialLayoutAlgorithm);
 		});
 		componentProvider.setVisible(true);
@@ -859,7 +876,7 @@ public class DefaultGraphDisplay implements GraphDisplay {
 			viewer.getRenderContext()
 					.setVertexIncludePredicate(
 						v -> v.getAttributeMap().values().stream().noneMatch(selected::contains));
-			viewer.repaint();
+
 		});
 
 		edgeFilters = AttributeFilters.builder()
@@ -970,6 +987,7 @@ public class DefaultGraphDisplay implements GraphDisplay {
 	 */
 	public void centerAndScale() {
 		viewer.scaleToLayout();
+		satelliteViewer.scaleToLayout();
 	}
 
 	/**
@@ -1071,7 +1089,7 @@ public class DefaultGraphDisplay implements GraphDisplay {
 			public void ancestorAdded(AncestorEvent ancestorEvent) {
 				vv.getComponent().removeAncestorListener(this);
 				Swing.runLater(() -> {
-					vv.scaleToLayout();
+					centerAndScale();
 				});
 			}
 
@@ -1316,17 +1334,17 @@ public class DefaultGraphDisplay implements GraphDisplay {
 			// center point of a vertex
 			AttributedVertex vertex = getVertex(event);
 			if (vertex != null) {
-				return new VertexToolTipInfo(vertex, event);
+				return new AttributedToolTipInfo(vertex, event);
 			}
 
 			AttributedEdge edge = getEdge(event);
 			if (edge != null) {
-				return new EdgeToolTipInfo(edge, event);
+				return new AttributedToolTipInfo(edge, event);
 			}
 
 			// no vertex or edge hit; just create a basic info that is essentially a null-object
 			// placeholder to prevent NPEs
-			return new VertexToolTipInfo(vertex, event);
+			return new AttributedToolTipInfo(vertex, event);
 		}
 
 		@Override
@@ -1365,10 +1383,10 @@ public class DefaultGraphDisplay implements GraphDisplay {
 		}
 	}
 
-	private class VertexToolTipInfo extends ToolTipInfo<AttributedVertex> {
+	private class AttributedToolTipInfo extends ToolTipInfo<Attributed> {
 
-		VertexToolTipInfo(AttributedVertex vertex, MouseEvent event) {
-			super(event, vertex);
+		AttributedToolTipInfo(Attributed graphObject, MouseEvent event) {
+			super(event, graphObject);
 		}
 
 		@Override
@@ -1397,38 +1415,4 @@ public class DefaultGraphDisplay implements GraphDisplay {
 			// this graph display does not have a notion of emphasizing
 		}
 	}
-
-	private class EdgeToolTipInfo extends ToolTipInfo<AttributedEdge> {
-
-		EdgeToolTipInfo(AttributedEdge edge, MouseEvent event) {
-			super(event, edge);
-		}
-
-		@Override
-		protected JComponent createToolTipComponent() {
-			if (graphObject == null) {
-				return null;
-			}
-
-			String toolTip = graphObject.getHtmlString();
-			if (StringUtils.isBlank(toolTip)) {
-				return null;
-			}
-
-			JToolTip jToolTip = new JToolTip();
-			jToolTip.setTipText(toolTip);
-			return jToolTip;
-		}
-
-		@Override
-		protected void emphasize() {
-			// this graph display does not have a notion of emphasizing
-		}
-
-		@Override
-		protected void deEmphasize() {
-			// this graph display does not have a notion of emphasizing
-		}
-	}
-
 }

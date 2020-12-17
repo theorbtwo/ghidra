@@ -1,6 +1,5 @@
 /* ###
  * IP: GHIDRA
- * REVIEWED: YES
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,11 +15,10 @@
  */
 package ghidra.program.database.data;
 
-import ghidra.util.exception.VersionException;
-
 import java.io.IOException;
 
 import db.*;
+import ghidra.util.exception.VersionException;
 
 class PointerDBAdapterV2 extends PointerDBAdapter {
 	final static int VERSION = 2;
@@ -67,49 +65,31 @@ class PointerDBAdapterV2 extends PointerDBAdapter {
 		throw new UnsupportedOperationException();
 	}
 
-	/* (non-Javadoc)
-	 * @see ghidra.program.database.data.PointerDBAdapter#getRecord(long)
-	 */
 	@Override
 	Record getRecord(long pointerID) throws IOException {
 		return translateRecord(table.getRecord(pointerID));
 	}
 
-	/* (non-Javadoc)
-	 * @see ghidra.program.database.data.PointerDBAdapter#getRecords()
-	 */
 	@Override
 	RecordIterator getRecords() throws IOException {
 		return new TranslatedRecordIterator(table.iterator());
 	}
 
-	/* (non-Javadoc)
-	 * @see ghidra.program.database.data.PointerDBAdapter#removeRecord(long)
-	 */
 	@Override
 	boolean removeRecord(long pointerID) throws IOException {
 		throw new UnsupportedOperationException();
 	}
 
-	/* (non-Javadoc)
-	 * @see ghidra.program.database.data.PointerDBAdapter#updateRecord(ghidra.framework.store.db.Record)
-	 */
 	@Override
 	void updateRecord(Record record) throws IOException {
 		throw new UnsupportedOperationException();
 	}
 
-	/* (non-Javadoc)
-	 * @see ghidra.program.database.data.PointerDBAdapter#getRecordIdsInCategory(long)
-	 */
 	@Override
-	long[] getRecordIdsInCategory(long categoryID) throws IOException {
-		return table.findRecords(new LongField(categoryID), OLD_PTR_CATEGORY_COL);
+	Field[] getRecordIdsInCategory(long categoryID) throws IOException {
+		return table.findRecords(new LongField(categoryID), PTR_CATEGORY_COL);
 	}
 
-	/**
-	 * @see ghidra.program.database.data.PointerDBAdapter#deleteTable()
-	 */
 	@Override
 	void deleteTable(DBHandle handle) throws IOException {
 		handle.deleteTable(POINTER_TABLE_NAME);
