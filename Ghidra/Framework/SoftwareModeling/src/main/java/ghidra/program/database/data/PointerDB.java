@@ -187,6 +187,8 @@ class PointerDB extends DataTypeDB implements Pointer {
 		} finally {
 			lock.release();
 		}
+
+		return displayName;
 	}
 
 	@Override
