@@ -22,60 +22,67 @@ import ghidra.util.exception.VersionException;
 
 class PointerDBAdapterV2 extends PointerDBAdapter {
 	final static int VERSION = 2;
-
+	
+	static final int OLD_PTR_DT_ID_COL = 0;
+	static final int OLD_PTR_CATEGORY_COL = 1;
+	static final int OLD_PTR_LENGTH_COL = 2;
+	static final Schema OLD_SCHEMA = new Schema(PointerDBAdapterV2.VERSION, "Pointer ID", new Class[] {
+			LongField.class, LongField.class, ByteField.class }, new String[] { "Data Type ID",
+			"Category ID", "Length" });
+	
 	private Table table;
 
-	PointerDBAdapterV2(DBHandle handle, boolean create) throws VersionException, IOException {
-
-		if (create) {
-			table = handle.createTable(POINTER_TABLE_NAME, SCHEMA, new int[] { PTR_CATEGORY_COL });
+	PointerDBAdapterV2(DBHandle handle) throws VersionException {
+		table = handle.getTable(POINTER_TABLE_NAME);
+		if (table == null) {
+			throw new VersionException("Missing Table: " + POINTER_TABLE_NAME);
 		}
-		else {
-			table = handle.getTable(POINTER_TABLE_NAME);
-			if (table == null) {
-				throw new VersionException("Missing Table: " + POINTER_TABLE_NAME);
+		else if (table.getSchema().getVersion() != VERSION) {
+			int version = table.getSchema().getVersion();
+			if (version < VERSION) {
+				throw new VersionException(true);
 			}
-			else if (table.getSchema().getVersion() != VERSION) {
-				int version = table.getSchema().getVersion();
-				if (version < VERSION) {
-					throw new VersionException(true);
-				}
-				throw new VersionException(VersionException.NEWER_VERSION, false);
-			}
+			throw new VersionException(VersionException.NEWER_VERSION, false);
 		}
 	}
 
 	@Override
-	Record createRecord(long dataTypeID, long categoryID, int length) throws IOException {
-		long tableKey = table.getKey();
-		long key = DataTypeManagerDB.createKey(DataTypeManagerDB.POINTER, tableKey);
+	Record translateRecord(Record oldRec) {
+		if (oldRec == null) {
+			return null;
+		}
+		Record rec = PointerDBAdapter.SCHEMA.createRecord(oldRec.getKey());
+		rec.setLongValue(PTR_DT_ID_COL, oldRec.getLongValue(OLD_PTR_DT_ID_COL));
+		rec.setLongValue(PTR_CATEGORY_COL, oldRec.getLongValue(OLD_PTR_CATEGORY_COL));
+		rec.setByteValue(PTR_LENGTH_COL, oldRec.getByteValue(OLD_PTR_LENGTH_COL));
+		rec.setLongValue(PTR_SHIFT_OFFSET_COL, 0);
+		return rec;
+	}
 
-		Record record = SCHEMA.createRecord(key);
-		record.setLongValue(PTR_DT_ID_COL, dataTypeID);
-		record.setLongValue(PTR_CATEGORY_COL, categoryID);
-		record.setByteValue(PTR_LENGTH_COL, (byte) length);
-		table.putRecord(record);
-		return record;
+
+	@Override
+	Record createRecord(long dataTypeID, long categoryID, int length) throws IOException {
+		throw new UnsupportedOperationException();
 	}
 
 	@Override
 	Record getRecord(long pointerID) throws IOException {
-		return table.getRecord(pointerID);
+		return translateRecord(table.getRecord(pointerID));
 	}
 
 	@Override
 	RecordIterator getRecords() throws IOException {
-		return table.iterator();
+		return new TranslatedRecordIterator(table.iterator());
 	}
 
 	@Override
 	boolean removeRecord(long pointerID) throws IOException {
-		return table.deleteRecord(pointerID);
+		throw new UnsupportedOperationException();
 	}
 
 	@Override
 	void updateRecord(Record record) throws IOException {
-		table.putRecord(record);
+		throw new UnsupportedOperationException();
 	}
 
 	@Override
@@ -86,7 +93,6 @@ class PointerDBAdapterV2 extends PointerDBAdapter {
 	@Override
 	void deleteTable(DBHandle handle) throws IOException {
 		handle.deleteTable(POINTER_TABLE_NAME);
-
 	}
-
+	
 }

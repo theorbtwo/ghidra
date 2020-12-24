@@ -71,6 +71,7 @@ OpToken PrintC::xorequal = { "^=", 2, 14, false, OpToken::binary, 1, 5, (OpToken
 OpToken PrintC::type_expr_space = { "", 2, 10, false, OpToken::space, 1, 0, (OpToken *)0 };
 OpToken PrintC::type_expr_nospace = { "", 2, 10, false, OpToken::space, 0, 0, (OpToken *)0 };
 OpToken PrintC::ptr_expr = { "*", 1, 62, false, OpToken::unary_prefix, 0, 0, (OpToken *)0 };
+OpToken PrintC::ptr_shift_space = { "", 2, 61, false, OpToken::space, 1, 0, (OpToken *)0 };
 OpToken PrintC::array_expr = { "[]", 2, 66, false, OpToken::postsurround, 1, 0, (OpToken *)0 };
 OpToken PrintC::enum_cat = { "|", 2, 26, true, OpToken::binary, 0, 0, (OpToken *)0 };
 
@@ -243,7 +244,9 @@ void PrintC::pushTypeStart(const Datatype *ct,bool noident)
 
   ct = typestack.back();	// The base type
   OpToken *tok;
-  
+
+  int4 tsstart = typestack.size() - 2; //The start typestack index
+
   if (noident && (typestack.size()==1))
     tok = &type_expr_nospace;
   else
@@ -259,10 +262,26 @@ void PrintC::pushTypeStart(const Datatype *ct,bool noident)
     pushOp(tok,(const PcodeOp *)0);
     pushAtom(Atom(ct->getName(),typetoken,EmitXml::type_color,ct));
   }
-  for(int4 i=typestack.size()-2;i>=0;--i) {
+  for(int4 i=tsstart;i>=0;--i) {
     ct = typestack[i];
-    if (ct->getMetatype() == TYPE_PTR)
+    if (ct->getMetatype() == TYPE_PTR) {
+      const TypePointer *pt = (const TypePointer*) ct;
+      pushMod();
+      setMod(force_hex); 
+      if (pt->getShiftOffset() != 0) pushOp(&ptr_shift_space,(const PcodeOp *)0);
       pushOp(&ptr_expr,(const PcodeOp *)0);
+      if (pt->getShiftOffset() > 0) {
+        pushOp(&unary_plus,(const PcodeOp *)0);
+        push_integer(pt->getShiftOffset(),sizeof(intb),true,
+          (const Varnode *)0,(const PcodeOp *)0);
+      }
+      else if(pt->getShiftOffset() < 0) {
+        pushOp(&unary_minus,(const PcodeOp *)0);
+        push_integer(-pt->getShiftOffset(),sizeof(intb),true,
+          (const Varnode *)0,(const PcodeOp *)0);
+      }
+      popMod();
+    }
     else if (ct->getMetatype() == TYPE_ARRAY)
       pushOp(&array_expr,(const PcodeOp *)0);
     else if (ct->getMetatype() == TYPE_CODE)

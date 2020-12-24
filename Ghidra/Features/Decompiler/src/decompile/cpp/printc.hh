@@ -111,6 +111,7 @@ protected:
   static OpToken type_expr_space;	///< Type declaration involving a space (identifier or adornment)
   static OpToken type_expr_nospace;	///< Type declaration with no space
   static OpToken ptr_expr;		///< Pointer adornment for a type declaration
+  static OpToken ptr_shift_space;		///< Space between pointer shift offset and rest of the type stack
   static OpToken array_expr;		///< Array adornment for a type declaration
   static OpToken enum_cat;		///< The \e concatenation operator for enumerated values
   bool option_NULL;		///< Set to \b true if we should emit NULL keyword
