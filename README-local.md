@@ -6,6 +6,22 @@ NSA https://github.com/NationalSecurityAgency/ghidra.git
 573 Add shifted pointers #2189
   https://github.com/Popax21/ghidra
   git pull Popax21 master
+  # This does add a few annoying bugs, but it's also something I actually use, and having previously used it, I would also need to do some work to disentangle it from my existing databases.
+Add support for UEFI datatype libraries #501
+  https://github.com/wrffrz/ghidra/tree/uefi-datatype
+  git pull wrffrz uefi-datatype
+Better choices of which branch is which in if () {} else {}
+  https://github.com/cmorin6/ghidra/tree/ruleBlockIfNoExit-select-best-noexit
+  git pull cmorin6 ruleBlockIfNoExit-select-best-noexit
+Merge if () {} else if {}
+  https://github.com/cmorin6/ghidra/tree/decompiler-merge-else-if
+  git pull cmorin6 decompiler-merge-else-if
+decompile to "for" loop instead of making everything "while"
+  https://github.com/grant-h/ghidra/tree/decomp_forloop
+  git pull grant-h decomp_forloop
+use pre/post inc/decrement operators
+  https://github.com/grant-h/ghidra/tree/decomp_incdec
+  git pull grant-h decomp_incdec
 
 # NSA:
 #  https://github.com/NationalSecurityAgency/ghidra.git
@@ -29,9 +45,6 @@ NSA https://github.com/NationalSecurityAgency/ghidra.git
 # decompiler: resolve constant code pointers
 #  https://github.com/GregoryMorse/ghidra/tree/patch-19
 #  git pull GregoryMorse patch-19
-# Add support for UEFI datatype libraries #501
-#  https://github.com/wrffrz/ghidra/tree/uefi-datatype
-#  git pull wrffrz uefi-datatype
 # UEFI Terse Executable loader
 #  https://github.com/wrffrz/ghidra/tree/uefi-te
 #  git pull wrffrz uefi-te
@@ -39,18 +52,9 @@ NSA https://github.com/NationalSecurityAgency/ghidra.git
 # Autodetect the `___chkstk_ms` symbol #1889
 #  https://github.com/heinrich5991/ghidra/tree/pr_chkstk_ms
 #  git pull heinrich5991 pr_chkstk_ms
-# #573 Add shifted pointers #2189
-#  https://github.com/Popax21/ghidra
-#  git pull Popax21 master
 # Added __stack_chk_fail to ElfFunctionsThatDoNotReturn #2332
 #  https://github.com/astrelsky/ghidra/tree/StackCheck
 #  git pull astrelsky StackCheck
-# Better choices of which branch is which in if () {} else {}
-#  https://github.com/cmorin6/ghidra/tree/ruleBlockIfNoExit-select-best-noexit
-#  git pull cmorin6 ruleBlockIfNoExit-select-best-noexit
-# Merge if () {} else if {}
-#  https://github.com/cmorin6/ghidra/tree/decompiler-merge-else-if
-#  git pull cmorin6 decompiler-merge-else-if
 # Fix signed/unsigned confusion in equates
 #  https://github.com/theorbtwo/ghidra/compare/master...snemes:fix-equate-signedness
 #  git pull snemes fix-equate-signedness
